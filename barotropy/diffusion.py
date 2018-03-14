@@ -7,6 +7,8 @@ import numpy as np
 from sympl import (Prognostic, get_numpy_arrays_with_properties,
                    restore_data_arrays_with_properties)
 import spharm
+from .util import buffer_poles, unbuffer_poles
+
 
 class Diffusion(Prognostic):
     """
@@ -15,21 +17,21 @@ class Diffusion(Prognostic):
 
     # INPUT: vortcity (mean & pert), latitude, longitude
     input_properties = {
-        'perturbation_atmosphere_relative_vorticity': { 
-            'dims': ['y','x'], 
+        'perturbation_atmosphere_relative_vorticity': {
+            'dims': ['y', 'x'],
             'units': 's^-1',
             'alias': 'vortp',
         },
-        'base_atmosphere_relative_vorticity': { 
-            'dims': ['y','x'], 
+        'base_atmosphere_relative_vorticity': {
+            'dims': ['y', 'x'],
             'units': 's^-1',
             'alias': 'vortb',
         },
-        'grid_latitude': {
+        'lat': {
             'dims': ['y', 'x'],
             'units': 'radians',
         },
-        'grid_longitude': {
+        'lon': {
             'dims': ['y', 'x'],
             'units': 'radians',
         }
@@ -41,27 +43,25 @@ class Diffusion(Prognostic):
     # TENDENCIES: vorticity (prime only)
     tendency_properties = {
         'perturbation_atmosphere_relative_vorticity': {
-            'dims_like': 'grid_latitude',
+            'dims_like': 'lat',
             'units': 's^-2',
         }
     }
-    
-    
+
     def __init__(self, ntrunc=21, k=2.338e16):
         self._ntrunc = ntrunc
         self._k = k
 
-        
     def __call__(self, state):
         """
         Calculates the vorticity tendency from the current state using:
         diffusion = k * del^4(vorticity)
-        
+
         Args
         ----
         state : dict
             A dictionary of DataArrays containing the model state.
-            
+
         Returns
         -------
         tendencies : dict
@@ -70,61 +70,57 @@ class Diffusion(Prognostic):
         diagnostics : dict
             An empty dictionary.
         """
-        
+
         # Get numpy arrays with specifications from input_properties
         raw_arrays = get_numpy_arrays_with_properties(
             state, self.input_properties)
         vortp = raw_arrays['vortp']
         vortb = raw_arrays['vortb']
-        theta = raw_arrays['grid_latitude']
-        lamb = raw_arrays['grid_longitude']
-        
+        theta = raw_arrays['lat']
+        lamb = raw_arrays['lon']
+
         # # Calculate the vorticity tendency due to diffusion
         # raw_tendencies = {
         #     'vortp': self._k * del4(vortp+vortb, theta, lamb),
         # }
-        
+
         ### TRYING THINGS
-        s = spharm.Spharmt(lamb.shape[1], lamb.shape[0], rsphere=6378100.,
+        s = spharm.Spharmt(lamb.shape[1], lamb.shape[0]+2, rsphere=6378100.,
             gridtype='regular', legfunc='computed')
-        vspec = s.grdtospec(vortp, ntrunc=21)####+vortb)
+        vspec = s.grdtospec(buffer_poles(vortp+vortb), ntrunc=21)
         # FIRST ORDER
         dv_dx, dv_dy = s.getgrad(vspec)
         # SECOND ORDER
         d2v_dx2, _ = s.getgrad(s.grdtospec(dv_dx, ntrunc=self._ntrunc))
         _, d2v_dy2 = s.getgrad(s.grdtospec(dv_dy, ntrunc=self._ntrunc))
         # FOURTH ORDER
-        d4v_dx4, _ = s.getgrad(s.grdtospec(s.getgrad(s.grdtospec(d2v_dx2, 
+        d4v_dx4, _ = s.getgrad(s.grdtospec(s.getgrad(s.grdtospec(d2v_dx2,
             ntrunc=self._ntrunc))[0], ntrunc=self._ntrunc))
-        _, d4v_dy4 = s.getgrad(s.grdtospec(s.getgrad(s.grdtospec(d2v_dy2, 
+        _, d4v_dy4 = s.getgrad(s.grdtospec(s.getgrad(s.grdtospec(d2v_dy2,
             ntrunc=self._ntrunc))[1], ntrunc=self._ntrunc))
         # PUT IT ALL TOGETHER
-        del4v = d4v_dx4 + d4v_dy4 + (2 * d2v_dx2 * d2v_dy2)
+        del4v = unbuffer_poles(d4v_dx4 + d4v_dy4 + (2 * d2v_dx2 * d2v_dy2))
         raw_tendencies = {
             'vortp': -self._k * del4v,
         }
-        
+
         # Now we re-format the data in a way the host model can use
         tendencies = restore_data_arrays_with_properties(
             raw_tendencies, self.tendency_properties,
             state, self.input_properties)
         diagnostics = {}
-        
-        ### TODO: this is not needed when TendencyInDiagnosticsWrapper() is fixed
-        diagnostic_name = 'tendency_of_{}_due_to_diffusion'.format(
-            list(tendencies.keys())[0])
-        diagnostics[diagnostic_name] = list(tendencies.values())[0]
+
         return tendencies, diagnostics
-        
-        
+
+
 def del4(data, theta, lamb, buflat=80.):
     """
     Applies the del^4 operator to 2D global data in x-y space.
     Uses the given lats/lons to compute spatial derivatives in meters.
-    
+
     Args
     ----
-    data : numpy array 
+    data : numpy array
         2D global field (e.g., vorticity); shape = (nlats, nlons)
     theta : numpy array
         2D latitude grid (in radians); same shape as data
@@ -132,13 +128,13 @@ def del4(data, theta, lamb, buflat=80.):
         2D longitude grid (in radians); same shape as data
     buflat : float
         Latitude poleward of which zonal derivatives are set to zero.
-    
+
     Returns
     -------
     del4data : numpy array
-        output array; same shape as data 
+        output array; same shape as data
     """
-    # Use the lat/lon mesh to calculate the distance (in meters) 
+    # Use the lat/lon mesh to calculate the distance (in meters)
     # between each point
     dy = 111000. * np.rad2deg(theta[1:,:]-theta[:-1,:])
     dx = np.cos(theta[:,1:]) * 111000. * np.rad2deg(lamb[:,1:]-lamb[:,:-1])
@@ -148,15 +144,15 @@ def del4(data, theta, lamb, buflat=80.):
     d2data_dx2 = second_derivative(data, dx, axis=1)
     d4data_dy4 = fourth_derivative(data, dy, axis=0)
     d4data_dx4 = fourth_derivative(data, dx, axis=1)
-    
-    # Find how many lat points are poleward of <buflat> degrees; let's buffer 
+
+    # Find how many lat points are poleward of <buflat> degrees; let's buffer
     # the x-derivatives with zeros here, since the very small dx values
     # make crazy derivatives
     nbuf = next((i for i,x in enumerate(np.rad2deg(theta[:,0])) if abs(x) < buflat))
     for derivative in [d2data_dx2, d4data_dx4]:
         derivative[:nbuf, :] = 0
         derivative[-nbuf:, :] = 0
-    
+
     del4data = d4data_dy4 + d4data_dx4 + (2 * d2data_dy2 * d2data_dx2)
 
     # Use the above to calculate/return del^4(data)
@@ -166,19 +162,19 @@ def del4(data, theta, lamb, buflat=80.):
 def second_derivative(data, delta, axis=0):
     """
     Computes the second derivative of an Nd-array along the desired axis.
-    
+
     Requires:
     data ---> N-dimensional numpy array
-    delta --> float or 1-dimensional array/list (same length as desired <data> axis) 
+    delta --> float or 1-dimensional array/list (same length as desired <data> axis)
               indicating the distance between data points
     axis ---> desired axis to take the derivative along
-    
+
     Returns:
-    N-dimensional numpy array (same shape as <data>) 
+    N-dimensional numpy array (same shape as <data>)
     """
     n = len(data.shape)
 
-    # If <delta> is not an array (i.e., if the mesh is uniform), 
+    # If <delta> is not an array (i.e., if the mesh is uniform),
     # create an array of deltas that is the same shape as <data>
     deltashape = list(data.shape)
     deltashape[axis] -= 1
@@ -208,7 +204,7 @@ def second_derivative(data, delta, axis=0):
     center = 2 * (data[slice0] / (combined_delta * delta[delta_slice0]) -
                   data[slice1] / (delta[delta_slice0] * delta[delta_slice1]) +
                   data[slice2] / (combined_delta * delta[delta_slice1]))
-    
+
     # Fill the left boundary (pad it with the edge value)
     slice0[axis] = slice(None,1)
     left = center[slice0].repeat(1, axis=axis)
@@ -225,19 +221,19 @@ def second_derivative(data, delta, axis=0):
 def fourth_derivative(data, delta, axis=0):
     """
     Computes the fourth derivative of Nd-array <data> along the desired axis.
-    
+
     Requires:
     data ---> N-dimensional numpy array
-    delta --> float or 1-dimensional array/list (same length as desired <data> axis) 
+    delta --> float or 1-dimensional array/list (same length as desired <data> axis)
               indicating the distance between data points
     axis ---> desired axis to take the derivative along
-    
+
     Returns:
-    N-dimensional numpy array (same shape as <data>) 
+    N-dimensional numpy array (same shape as <data>)
     """
     n = len(data.shape)
 
-    # If <delta> is not an array (i.e., if the mesh is uniform), 
+    # If <delta> is not an array (i.e., if the mesh is uniform),
     # create an array of deltas that is the same shape as <data>
     deltashape = list(data.shape)
     deltashape[axis] -= 1
@@ -273,8 +269,8 @@ def fourth_derivative(data, delta, axis=0):
     delta_slice1[axis] = slice(1, -2)
     delta_slice2[axis] = slice(2, -1)
     delta_slice3[axis] = slice(3, None)
-    center = f4(data[slice0], data[slice1], data[slice2], data[slice3], 
-                data[slice4], delta[delta_slice0], delta[delta_slice1], 
+    center = f4(data[slice0], data[slice1], data[slice2], data[slice3],
+                data[slice4], delta[delta_slice0], delta[delta_slice1],
                 delta[delta_slice2], delta[delta_slice3])
 
     # Fill the left boundary (pad it with the edge value)
@@ -295,7 +291,7 @@ def f4(f0, f1, f2, f3, f4, d0, d1, d2, d3):
     Computes the fourth derivative with the approximation:
     f^4(x) = [f(x-2) - 4*f(x-1) + 6*f(x) - 4*f(x+1) + f(x+2)] / hx^4
     (modified for non-uniform grid spacing)
-    
+
     Requires:
     f0,f1,f2,f3,f4 -> values at the staggered locations (numerator)
     d0,d1,d2,d3 ----> distances (deltas) between the staggered locations (denominator)
