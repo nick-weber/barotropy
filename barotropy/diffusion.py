@@ -7,7 +7,6 @@ import numpy as np
 from sympl import (Prognostic, get_numpy_arrays_with_properties,
                    restore_data_arrays_with_properties)
 import spharm
-from .util import buffer_poles, unbuffer_poles
 
 
 class Diffusion(Prognostic):
@@ -85,9 +84,9 @@ class Diffusion(Prognostic):
         # }
 
         ### TRYING THINGS
-        s = spharm.Spharmt(lamb.shape[1], lamb.shape[0]+2, rsphere=6378100.,
+        s = spharm.Spharmt(lamb.shape[1], lamb.shape[0], rsphere=6378100.,
             gridtype='regular', legfunc='computed')
-        vspec = s.grdtospec(buffer_poles(vortp+vortb), ntrunc=21)
+        vspec = s.grdtospec(vortp+vortb, ntrunc=self._ntrunc)
         # FIRST ORDER
         dv_dx, dv_dy = s.getgrad(vspec)
         # SECOND ORDER
@@ -99,7 +98,7 @@ class Diffusion(Prognostic):
         _, d4v_dy4 = s.getgrad(s.grdtospec(s.getgrad(s.grdtospec(d2v_dy2,
             ntrunc=self._ntrunc))[1], ntrunc=self._ntrunc))
         # PUT IT ALL TOGETHER
-        del4v = unbuffer_poles(d4v_dx4 + d4v_dy4 + (2 * d2v_dx2 * d2v_dy2))
+        del4v = d4v_dx4 + d4v_dy4 + (2 * d2v_dx2 * d2v_dy2)
         raw_tendencies = {
             'vortp': -self._k * del4v,
         }

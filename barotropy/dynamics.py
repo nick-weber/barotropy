@@ -7,7 +7,6 @@ import numpy as np
 from sympl import (Prognostic, get_numpy_arrays_with_properties,
                    restore_data_arrays_with_properties, get_constant)
 import spharm
-from .util import buffer_poles, unbuffer_poles
 
 Re = get_constant('planetary_radius', 'm')
 Omega = get_constant('planetary_rotation_rate', 's^-1')
@@ -117,10 +116,10 @@ class Dynamics(Prognostic):
         # Compute diagnostics (streamfunction) for tendency calculation
         # using spherical harmonics
         gridtype = state['lon'].gridtype
-        s = spharm.Spharmt(lamb.shape[1], lamb.shape[0]+2, rsphere=Re,
+        s = spharm.Spharmt(lamb.shape[1], lamb.shape[0], rsphere=Re,
                            gridtype=gridtype, legfunc='computed')
-        vortp_spec = s.grdtospec(buffer_poles(vortp), ntrunc=self._ntrunc)
-        vortb_spec = s.grdtospec(buffer_poles(vortb), ntrunc=self._ntrunc)
+        vortp_spec = s.grdtospec(vortp, ntrunc=self._ntrunc)
+        vortb_spec = s.grdtospec(vortb, ntrunc=self._ntrunc)
         div_spec = np.zeros(vortb_spec.shape)  # Only want NON-DIVERGENT wind
         # Get the winds
         up, vp = s.getuv(vortp_spec, div_spec)
@@ -132,23 +131,17 @@ class Dynamics(Prognostic):
         # vortp = s.spectogrd(vortp_spec)
         # # ^ no need to do the base state, as that is probably already smooth
 
-        # Unbuffer the fields (remove the points at 90N/90S)
-        up = unbuffer_poles(up)
-        ub = unbuffer_poles(ub)
-        vp = unbuffer_poles(vp)
-        vb = unbuffer_poles(vb)
-        psip = unbuffer_poles(psip)
-        psib = unbuffer_poles(psib)
-
         # Compute dtheta and dlamba for the derivatives
         dlamb = np.gradient(lamb)[1]
         dtheta = np.gradient(theta)[0]
 
         # Here we actually compute vorticity tendency
         # Compute tendency with beta as only forcing
-        vort_tend = -2. * Omega/(Re**2) * d_dlamb(psip + psib, dlamb) - \
-            jacobian(psip+psib, vortp+vortb, theta, dtheta, dlamb)
-        ###vort_tend = -jacobian(psip + psib, vortp + vortb, theta, dtheta, dlamb)
+        f = 2 * Omega * np.sin(theta)
+        beta = s.getgrad(s.grdtospec(f, ntrunc=self._ntrunc))[1]
+        dvort_dx = s.getgrad(vortp_spec + vortb_spec)[0]
+        dvort_dy = s.getgrad(vortp_spec + vortb_spec)[1]
+        vort_tend = - (vp+vb) * beta - (up+ub) * dvort_dx - (vp+vb) * dvort_dy
         raw_tendencies = {
             'vortp': vort_tend,
         }
