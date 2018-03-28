@@ -30,7 +30,7 @@ class Damping(Prognostic):
         }
     }
 
-    def __init__(self, tau=14.7):
+    def __init__(self, tau=14.7, tendencies_in_diagnostics=False, name=None):
         """
         Args
         ----
@@ -38,6 +38,11 @@ class Damping(Prognostic):
             Linear damping timescale in days.
         """
         self._tau = tau * 3600. * 24.  # days --> seconds
+        if name is None:
+            name = 'dynamics'
+        super(Damping, self).__init__(
+            tendencies_in_diagnostics=tendencies_in_diagnostics, name=name
+        )
 
     def array_call(self, state):
         """

@@ -74,8 +74,13 @@ class Dynamics(Prognostic):
         }
     }
 
-    def __init__(self, ntrunc=21):
+    def __init__(self, ntrunc=21, tendencies_in_diagnostics=False, name=None):
         self._ntrunc = ntrunc
+        if name is None:
+            name = 'dynamics'
+        super(Dynamics, self).__init__(
+            tendencies_in_diagnostics=tendencies_in_diagnostics, name=name
+        )
 
     def array_call(self, state):
         """
