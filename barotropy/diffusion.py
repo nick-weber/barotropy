@@ -4,8 +4,7 @@
 Module containing the Prognostic object Diffusion and some helper functions
 """
 import numpy as np
-from sympl import (Prognostic, get_numpy_arrays_with_properties,
-                   restore_data_arrays_with_properties)
+from sympl import Prognostic
 import spharm
 
 
@@ -17,22 +16,14 @@ class Diffusion(Prognostic):
     # INPUT: vortcity (mean & pert), latitude, longitude
     input_properties = {
         'perturbation_atmosphere_relative_vorticity': {
-            'dims': ['y', 'x'],
+            'dims': ['lat', 'lon'],
             'units': 's^-1',
             'alias': 'vortp',
         },
         'base_atmosphere_relative_vorticity': {
-            'dims': ['y', 'x'],
+            'dims': ['lat', 'lon'],
             'units': 's^-1',
             'alias': 'vortb',
-        },
-        'lat': {
-            'dims': ['y', 'x'],
-            'units': 'radians',
-        },
-        'lon': {
-            'dims': ['y', 'x'],
-            'units': 'radians',
         }
     }
 
@@ -42,7 +33,6 @@ class Diffusion(Prognostic):
     # TENDENCIES: vorticity (prime only)
     tendency_properties = {
         'perturbation_atmosphere_relative_vorticity': {
-            'dims_like': 'lat',
             'units': 's^-2',
         }
     }
@@ -51,7 +41,7 @@ class Diffusion(Prognostic):
         self._ntrunc = ntrunc
         self._k = k
 
-    def __call__(self, state):
+    def array_call(self, state):
         """
         Calculates the vorticity tendency from the current state using:
         diffusion = k * del^4(vorticity)
@@ -59,24 +49,20 @@ class Diffusion(Prognostic):
         Args
         ----
         state : dict
-            A dictionary of DataArrays containing the model state.
+            A dictionary of numpy arrays containing the model state.
 
         Returns
         -------
         tendencies : dict
             A single-item dictionary containing the vorticity
-            tendency DataArray.
+            tendency numpy array.
         diagnostics : dict
             An empty dictionary.
         """
 
         # Get numpy arrays with specifications from input_properties
-        raw_arrays = get_numpy_arrays_with_properties(
-            state, self.input_properties)
-        vortp = raw_arrays['vortp']
-        vortb = raw_arrays['vortb']
-        theta = raw_arrays['lat']
-        lamb = raw_arrays['lon']
+        vortp = state['vortp']
+        vortb = state['vortb']
 
         # # Calculate the vorticity tendency due to diffusion
         # raw_tendencies = {
@@ -84,8 +70,8 @@ class Diffusion(Prognostic):
         # }
 
         ### TRYING THINGS
-        s = spharm.Spharmt(lamb.shape[1], lamb.shape[0], rsphere=6378100.,
-            gridtype='regular', legfunc='computed')
+        s = spharm.Spharmt(vortp.shape[1], vortp.shape[0], rsphere=6378100.,
+                           gridtype='regular', legfunc='computed')
         vspec = s.grdtospec(vortp+vortb, ntrunc=self._ntrunc)
         # FIRST ORDER
         dv_dx, dv_dy = s.getgrad(vspec)
@@ -94,19 +80,15 @@ class Diffusion(Prognostic):
         _, d2v_dy2 = s.getgrad(s.grdtospec(dv_dy, ntrunc=self._ntrunc))
         # FOURTH ORDER
         d4v_dx4, _ = s.getgrad(s.grdtospec(s.getgrad(s.grdtospec(d2v_dx2,
-            ntrunc=self._ntrunc))[0], ntrunc=self._ntrunc))
+                               ntrunc=self._ntrunc))[0], ntrunc=self._ntrunc))
         _, d4v_dy4 = s.getgrad(s.grdtospec(s.getgrad(s.grdtospec(d2v_dy2,
-            ntrunc=self._ntrunc))[1], ntrunc=self._ntrunc))
+                               ntrunc=self._ntrunc))[1], ntrunc=self._ntrunc))
         # PUT IT ALL TOGETHER
         del4v = d4v_dx4 + d4v_dy4 + (2 * d2v_dx2 * d2v_dy2)
-        raw_tendencies = {
+        tendencies = {
             'vortp': -self._k * del4v,
         }
 
-        # Now we re-format the data in a way the host model can use
-        tendencies = restore_data_arrays_with_properties(
-            raw_tendencies, self.tendency_properties,
-            state, self.input_properties)
         diagnostics = {}
 
         return tendencies, diagnostics

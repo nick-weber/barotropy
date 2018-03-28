@@ -6,7 +6,72 @@ Module containing functions to initialize the model state.
 import numpy as np
 import spharm
 from datetime import datetime
-from sympl import DataArray, add_direction_names, get_constant
+from sympl import DataArray, get_constant
+
+Omega = get_constant('planetary_rotation_rate', 's^-1')
+Re = get_constant('planetary_radius', 'm')
+
+
+def super_rotation(idate=None):
+    """
+    Creates ICs for an idealized case: "zonal flow corresponding to
+    a super-rotation of the atmosphere with a maximum value of ~15.4 m/s
+    on the equator." (Sardeshmukh and Hoskins 1988)
+
+    Args
+    ----
+    idate : datetime
+        Forecast initialization date
+
+    Returns
+    -------
+    ics : dict
+        Model initial state (a dictionary of DataArrays)
+    """
+    # Set the init. date if not provided
+    if idate is None:
+        idate = datetime.utcnow().replace(hour=0, minute=0,
+                                          second=0, microsecond=0)
+
+    # Create a 2-degree regular lat/lon grid
+    lo = np.arange(0., 360., 2.)
+    la = np.arange(-90, 90.1, 2.)[::-1]
+    lons, lats = np.meshgrid(lo, la)
+    theta = lats * np.pi/180.
+    lamb = lons * np.pi/180.
+
+    # Mean state: zonal extratropical jets
+    ubar = Re * Omega * np.cos(theta) / 30.
+    vbar = np.zeros(ubar.shape)
+
+    # Get the mean state vorticity from ubar and vbar
+    s = spharm.Spharmt(lamb.shape[1], lamb.shape[0], gridtype='regular',
+                       rsphere=Re, legfunc='computed')
+    vortb_spec, _ = s.getvrtdivspec(ubar, vbar)
+    vort_bar = s.spectogrd(vortb_spec)
+    vort_prime = np.zeros(vort_bar.shape)
+
+    # Generate the state
+    ics = {
+        'time': idate,
+        'latitude': DataArray(
+            lats,
+            dims=('lat', 'lon'),
+            attrs={'units': 'degrees', 'gridtype': 'regular'}),
+        'longitude': DataArray(
+            lons,
+            dims=('lat', 'lon'),
+            attrs={'units': 'degrees', 'gridtype': 'regular'}),
+        'base_atmosphere_relative_vorticity': DataArray(
+            vort_bar,
+            dims=('lat', 'lon'),
+            attrs={'units': 's^-1', 'gridtype': 'regular'}),
+        'perturbation_atmosphere_relative_vorticity': DataArray(
+            vort_prime,
+            dims=('lat', 'lon'),
+            attrs={'units': 's^-1', 'gridtype': 'regular'})
+        }
+    return ics
 
 
 def sinusoidal_perts_on_zonal_jet(idate=None, amp=12e-5, m=4, theta0=45., theta_w=15.):
@@ -50,8 +115,8 @@ def sinusoidal_perts_on_zonal_jet(idate=None, amp=12e-5, m=4, theta0=45., theta_
     vbar = np.zeros(np.shape(ubar))
 
     # Get the mean state vorticity from ubar and vbar
-    s = spharm.Spharmt(lamb.shape[1], lamb.shape[0]+2, gridtype='regular',
-                       rsphere=get_constant('planetary_radius', 'm'), legfunc='computed')
+    s = spharm.Spharmt(lamb.shape[1], lamb.shape[0], gridtype='regular',
+                       rsphere=Re, legfunc='computed')
     vortb_spec, _ = s.getvrtdivspec(ubar, vbar)
     vort_bar = s.spectogrd(vortb_spec)
 
@@ -62,14 +127,13 @@ def sinusoidal_perts_on_zonal_jet(idate=None, amp=12e-5, m=4, theta0=45., theta_
         np.cos(m*lamb)
 
     # Generate the state
-    add_direction_names(x='lon', y='lat')
     ics = {
         'time': idate,
-        'lat': DataArray(
+        'latitude': DataArray(
             lats,
             dims=('lat', 'lon'),
             attrs={'units': 'degrees', 'gridtype': 'regular'}),
-        'lon': DataArray(
+        'longitude': DataArray(
             lons,
             dims=('lat', 'lon'),
             attrs={'units': 'degrees', 'gridtype': 'regular'}),
@@ -104,6 +168,8 @@ def from_u_and_v_winds(lats, lons, ubar, vbar, uprime, vprime,
         2D array (nlat, nlon) of perturbation zonal winds
     vprime : numpy  array
         2D array (nlat, nlon) of perturbation meridional winds
+    ntrunc : int
+        Triangular truncation for spherical harmonics transformation
     idate : datetime
         Foreast initialization date
 
@@ -142,14 +208,13 @@ def from_u_and_v_winds(lats, lons, ubar, vbar, uprime, vprime,
     vort_prime = s.spectogrd(vortp_spec)
 
     # Generate the state
-    add_direction_names(x='lon', y='lat')
     ics = {
         'time': idate,
-        'lat': DataArray(
+        'latitude': DataArray(
             lats,
             dims=('lat', 'lon'),
             attrs={'units': 'degrees', 'gridtype': 'regular'}),
-        'lon': DataArray(
+        'longitude': DataArray(
             lons,
             dims=('lat', 'lon'),
             attrs={'units': 'degrees', 'gridtype': 'regular'}),

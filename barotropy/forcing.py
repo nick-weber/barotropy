@@ -5,7 +5,7 @@ Module containing the ConstantPrognostic object Forcing and some helper function
 """
 
 import numpy as np
-from sympl import ConstantPrognostic, DataArray
+from sympl import (ConstantPrognostic, DataArray)
 
 
 class Forcing(ConstantPrognostic):
@@ -45,7 +45,7 @@ class Forcing(ConstantPrognostic):
         """
         Creates a full grid containing one or more Gaussian vorticity tendency
         features. By default, creates a single Gaussian centered at (35N, 160E)
-        with a width of 10 degrees and an amplitude of 10e-10 s^-2.
+        with a width of 15 degrees and an amplitude of 10e-10 s^-2.
 
         Parameters
         ----------
@@ -93,7 +93,7 @@ class Forcing(ConstantPrognostic):
         if centerlocs is None or amplitudes is None or widths is None:
             centerlocs = [(35., 160.)]
             amplitudes = [10e-10]
-            widths = [10]
+            widths = [15]
             latlon = True
 
         # TODO: Handle case where the Gaussian "block" runs into the domain edges.
@@ -114,7 +114,7 @@ class Forcing(ConstantPrognostic):
             # Create the gaussian in a nxny-by-nxny box
             x, y = np.meshgrid(np.linspace(-1, 1, nxny), np.linspace(-1, 1, nxny))
             d = np.sqrt(x**2 + y**2)
-            gaus = amp * np.exp(-(d**2))
+            gaus = amp * np.exp(-(d**2) / (2.*0.25**2))  # mu = 0, sigma = 0.25
 
             # Insert (rather, add) that gaussian into the forcing field
             forcing[cj-hw:cj+hw+1, ci-hw:ci+hw+1] += gaus
