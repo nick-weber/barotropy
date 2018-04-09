@@ -36,14 +36,12 @@ class Diffusion(Prognostic):
         }
     }
 
-    def __init__(self, ntrunc=21, k=2.338e16, tendencies_in_diagnostics=False, name=None):
+    def __init__(self, ntrunc=21, k=2.338e16, **kwargs):
         self._ntrunc = ntrunc
         self._k = k
-        if name is None:
-            name = 'dynamics'
-        super(Diffusion, self).__init__(
-            tendencies_in_diagnostics=tendencies_in_diagnostics, name=name
-        )
+        if 'name' not in kwargs.keys() or kwargs['name'] is None:
+            kwargs['name'] = 'diffusion'
+        super(Diffusion, self).__init__(**kwargs)
 
     def array_call(self, state):
         """
@@ -71,7 +69,7 @@ class Diffusion(Prognostic):
         # Compute del^4(vorticity) with spherical harmonics
         # Approximating del^4 as: d4_dx4 + d4_dy4 + 2 * (d2_dx2 * d2_dy2)
         s = spharm.Spharmt(vortp.shape[1], vortp.shape[0], rsphere=6378100.,
-                           gridtype='regular', legfunc='computed')
+                           gridtype='gaussian', legfunc='computed')
         vspec = s.grdtospec(vortp+vortb, ntrunc=self._ntrunc)
         # First order
         dvort_dx, dvort_dy = s.getgrad(vspec)

@@ -5,7 +5,7 @@ Module containing the ConstantPrognostic object Forcing and some helper function
 """
 
 import numpy as np
-from sympl import (ConstantPrognostic, DataArray)
+from sympl import (Prognostic, ConstantPrognostic, DataArray)
 
 
 class Forcing(ConstantPrognostic):
@@ -15,7 +15,7 @@ class Forcing(ConstantPrognostic):
     """
 
     @classmethod
-    def from_numpy_array(cls, tendency):
+    def from_numpy_array(cls, tendency, **kwargs):
         """
         Args
         ----
@@ -37,11 +37,14 @@ class Forcing(ConstantPrognostic):
                 dims=('lat', 'lon'),
                 attrs={'units': 's^-2'})
         }
-        return cls(tendencies)
+
+        if 'name' not in kwargs.keys() or kwargs['name'] is None:
+            kwargs['name'] = 'forcing'
+        return cls(tendencies, **kwargs)
 
     @classmethod
-    def gaussian_tendencies(cls, gridlat, gridlon, centerlocs=None,
-                            amplitudes=None, widths=None, latlon=True):
+    def gaussian_tendencies(cls, gridlat, gridlon, centerlocs=None, amplitudes=None,
+                            widths=None, latlon=True, **kwargs):
         """
         Creates a full grid containing one or more Gaussian vorticity tendency
         features. By default, creates a single Gaussian centered at (35N, 160E)
@@ -119,4 +122,4 @@ class Forcing(ConstantPrognostic):
             # Insert (rather, add) that gaussian into the forcing field
             forcing[cj-hw:cj+hw+1, ci-hw:ci+hw+1] += gaus
 
-        return cls.from_numpy_array(forcing)
+        return cls.from_numpy_array(forcing, **kwargs)

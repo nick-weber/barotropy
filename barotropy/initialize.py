@@ -49,6 +49,11 @@ def super_rotation(idate=None):
                        rsphere=Re, legfunc='computed')
     vortb_spec, _ = s.getvrtdivspec(ubar, vbar)
     vort_bar = s.spectogrd(vortb_spec)
+
+    # theta0 = np.deg2rad(0.)  # center lat --> radians
+    # theta_w = np.deg2rad(15.)  # halfwidth ---> radians
+    # vort_prime = 0.5 * 12e-5 * np.cos(theta) * np.exp(-((theta - theta0) / theta_w) ** 2) * \
+    #              np.cos(3. * lamb)
     vort_prime = np.zeros(vort_bar.shape)
 
     # Generate the state
@@ -74,10 +79,12 @@ def super_rotation(idate=None):
     return ics
 
 
-def sinusoidal_perts_on_zonal_jet(idate=None, amp=12e-5, m=4, theta0=45., theta_w=15.):
+def sinusoidal_perts_on_zonal_jet(idate=None, nlat=128, amp=8e-5, m=4, theta0=45., theta_w=15.):
     """
     Creates ICs for an idealized case: extratropical zonal jets
     with superimposed sinusoidal NH vorticity perturbations.
+
+    Taken from the GFDL model documentation (default case)
 
     Args
     ----
@@ -102,12 +109,13 @@ def sinusoidal_perts_on_zonal_jet(idate=None, amp=12e-5, m=4, theta0=45., theta_
         idate = datetime.utcnow().replace(hour=0, minute=0,
                                           second=0, microsecond=0)
 
-    # Create a 2.5-degree regular lat/lon grid
-    lo = np.arange(0., 360., 2.5)
-    la = np.arange(-90, 90.1, 2.5)[::-1]
+    # Create a regular lat/lon grid
+    lo = np.linspace(0., 360., 2*nlat + 1)[:-1]
+    # la = np.linspace(-90, 90., nlat)[::-1]
+    la, _ = spharm.gaussian_lats_wts(nlat)
     lons, lats = np.meshgrid(lo, la)
-    theta = lats * np.pi/180.
-    lamb = lons * np.pi/180.
+    theta = np.deg2rad(lats)
+    lamb = np.deg2rad(lons)
 
     # Mean state: zonal extratropical jets
     ubar = 25 * np.cos(theta) - 30 * np.cos(theta)**3 + \
@@ -115,9 +123,9 @@ def sinusoidal_perts_on_zonal_jet(idate=None, amp=12e-5, m=4, theta0=45., theta_
     vbar = np.zeros(np.shape(ubar))
 
     # Get the mean state vorticity from ubar and vbar
-    s = spharm.Spharmt(lamb.shape[1], lamb.shape[0], gridtype='regular',
+    s = spharm.Spharmt(lamb.shape[1], lamb.shape[0], gridtype='gaussian',
                        rsphere=Re, legfunc='computed')
-    vortb_spec, _ = s.getvrtdivspec(ubar, vbar)
+    vortb_spec, _ = s.getvrtdivspec(ubar, vbar, ntrunc=42)
     vort_bar = s.spectogrd(vortb_spec)
 
     # Initial perturbation: sinusoidal vorticity perturbations
@@ -125,6 +133,7 @@ def sinusoidal_perts_on_zonal_jet(idate=None, amp=12e-5, m=4, theta0=45., theta_
     theta_w = np.deg2rad(theta_w)  # halfwidth ---> radians
     vort_prime = 0.5 * amp * np.cos(theta) * np.exp(-((theta-theta0)/theta_w)**2) * \
         np.cos(m*lamb)
+    vort_prime = s.spectogrd(s.grdtospec(vort_prime, ntrunc=42))
 
     # Generate the state
     ics = {
@@ -132,19 +141,19 @@ def sinusoidal_perts_on_zonal_jet(idate=None, amp=12e-5, m=4, theta0=45., theta_
         'latitude': DataArray(
             lats,
             dims=('lat', 'lon'),
-            attrs={'units': 'degrees', 'gridtype': 'regular'}),
+            attrs={'units': 'degrees', 'gridtype': 'gaussian'}),
         'longitude': DataArray(
             lons,
             dims=('lat', 'lon'),
-            attrs={'units': 'degrees', 'gridtype': 'regular'}),
+            attrs={'units': 'degrees', 'gridtype': 'gaussian'}),
         'base_atmosphere_relative_vorticity': DataArray(
             vort_bar,
             dims=('lat', 'lon'),
-            attrs={'units': 's^-1', 'gridtype': 'regular'}),
+            attrs={'units': 's^-1', 'gridtype': 'gaussian'}),
         'perturbation_atmosphere_relative_vorticity': DataArray(
             vort_prime,
             dims=('lat', 'lon'),
-            attrs={'units': 's^-1', 'gridtype': 'regular'})
+            attrs={'units': 's^-1', 'gridtype': 'gaussian'})
         }
     return ics
 
