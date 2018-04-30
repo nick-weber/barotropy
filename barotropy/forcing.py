@@ -6,6 +6,7 @@ Module containing the ConstantPrognostic object Forcing and some helper function
 
 import numpy as np
 from sympl import (Prognostic, ConstantPrognostic, DataArray)
+from .util import gaussian_blob_2d
 
 
 class Forcing(ConstantPrognostic):
@@ -52,12 +53,11 @@ class Forcing(ConstantPrognostic):
 
     @classmethod
     def gaussian_tendencies(cls, gridlat, gridlon, centerlocs=None, amplitudes=None,
-                            widths=None, latlon=True, linearized=False, **kwargs):
+                            widths=None, linearized=False, **kwargs):
         """
         Creates a full grid containing one or more Gaussian vorticity tendency
-        features. By default, creates a single Gaussian centered at (35N, 160E)
+        features. By default, creates a single Gaussian centered at (25N, 165E)
         with a width of 15 degrees and an amplitude of 10e-10 s^-2.
-
         Parameters
         ----------
         gridlat : ndarray
@@ -65,20 +65,17 @@ class Forcing(ConstantPrognostic):
         gridlon : ndarray
             A 2D or 1D array of longitudes (in degrees).
         centerlocs : list
-            A list of tuples containing (lat,lon) or (y,x) coordinates
+            A list of tuples containing (lat,lon) coordinates
             for the centers of the desired Gaussian forcings.
-            default = [(35., 160.]), i.e. 35N,160E
+            default = [(25., 165.]), i.e. 35N,160E
         amplitudes : list
             A list of floats prescribing the amplitudes (in s^-2) for
             the desired Gaussian vorticity forcings.
             default = [10 * 10^-10]
         widths : list
-            A list of floats or ints prescribing the xy widths of the
+            A list of floats or ints prescribing the degree widths of the
             desired Gausian forcings.
-            default = [10], i.e. ten degrees
-        latlon : bool
-            If True, centerlocs and widths are in units of "degrees lat/lon".
-            Otherwise, the units are "# of grid points".
+            default = [15], i.e. ten degrees
         linearized : bool
             True is this is a linearized model (forcing tendency will
             be applied to *perturbation* vorticity).
@@ -105,32 +102,15 @@ class Forcing(ConstantPrognostic):
 
         # Fill in defaults if no gaussians were provided
         if centerlocs is None or amplitudes is None or widths is None:
-            centerlocs = [(35., 160.)]
+            centerlocs = [(25., 165.)]
             amplitudes = [10e-10]
             widths = [15]
-            latlon = True
 
-        # TODO: Handle case where the Gaussian "block" runs into the domain edges.
         for cen, amp, wd in zip(centerlocs, amplitudes, widths):
-            # Get index values for loc and wd if they were given
-            # as lat/lon values
-            if latlon:
-                cj, ci = np.unravel_index(np.argmin(abs(gridlat-cen[0]) +
-                                                    abs(gridlon-cen[1])), gridlat.shape)
-                nxny = int(wd / (gridlon[0, 1] - gridlon[0, 0]))
-            else:
-                cj, ci = cen
-                nxny = wd
-            if nxny % 2 == 0:
-                nxny = nxny + 1
-            hw = int((nxny - 1) / 2)  # half the width
-
-            # Create the gaussian in a nxny-by-nxny box
-            x, y = np.meshgrid(np.linspace(-1, 1, nxny), np.linspace(-1, 1, nxny))
-            d = np.sqrt(x**2 + y**2)
-            gaus = amp * np.exp(-(d**2) / (2.*0.25**2))  # mu = 0, sigma = 0.25
+            # Create the 2D gaussian field/blob
+            gaus = gaussian_blob_2d(gridlat, gridlon, cen, wd, amp)
 
             # Insert (rather, add) that gaussian into the forcing field
-            forcing[cj-hw:cj+hw+1, ci-hw:ci+hw+1] += gaus
+            forcing += gaus
 
         return cls.from_numpy_array(forcing, linearized=linearized, **kwargs)

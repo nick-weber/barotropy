@@ -7,8 +7,10 @@ import numpy as np
 import spharm
 
 
-def gaussian_grid(nlat, as_2d=True):
+def gaussian_latlon_grid(nlat, as_2d=True):
     """
+    Creates a gaussian lat/lon grid for spherical transforms.
+
     Args
     ----
     nlat : int
@@ -27,5 +29,37 @@ def gaussian_grid(nlat, as_2d=True):
     if as_2d:
         lo, la = np.meshgrid(lo, la)
     return lo, la
+
+
+def gaussian_blob_2d(latgrid, longrid, center, width, amplitude):
+    """
+    Creates a 2D field of zeros and containing a single gaussian 'blob.'
+
+    Args
+    ----
+    latgrid : numpy array
+        2D array of latitudes.
+    longrid :
+        2D array of longitudes
+    center : tuple
+        Two floats indicating the center latitude and longitude, respectively,
+        of the gaussian blob (same units as latgrid & longrid).
+    width : float
+        RMS width of the gaussian blob (same units as latgrid & longrid).
+    amplitude : float
+        Peak value of the gaussian blob.
+
+    Returns
+    -------
+    gaus : numpy array
+        2D array (same shape as latgrid/longrid) including the gaussian
+        blob and zeros elsewhere.
+    """
+    ydist = abs(latgrid - center[0])
+    xdist = abs(longrid - center[1])
+    xdist[xdist > 180.] = abs(xdist[xdist > 180.] - 360.)
+    distance = np.sqrt(xdist ** 2 + ydist ** 2)
+    gaus = amplitude * np.exp(-(distance ** 2) / (2 * width ** 2))
+    return gaus
 
 

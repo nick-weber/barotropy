@@ -7,7 +7,7 @@ import numpy as np
 import spharm
 from datetime import datetime
 from sympl import DataArray, get_constant
-from .util import gaussian_grid
+from .util import gaussian_latlon_grid
 
 Omega = get_constant('planetary_rotation_rate', 's^-1')
 Re = get_constant('planetary_radius', 'm')
@@ -39,7 +39,7 @@ def super_rotation(linearized=False, idate=None, nlat=128):
                                           second=0, microsecond=0)
 
     # Create a gaussian lat/lon grid
-    lons, lats = gaussian_grid(nlat)
+    lons, lats = gaussian_latlon_grid(nlat)
     theta = lats * np.pi/180.
     lamb = lons * np.pi/180.
 
@@ -93,7 +93,7 @@ def sinusoidal_perts_on_zonal_jet(linearized=False, idate=None, nlat=128, amp=8e
                                           second=0, microsecond=0)
 
     # Create a gaussian lat/lon grid
-    lons, lats = gaussian_grid(nlat)
+    lons, lats = gaussian_latlon_grid(nlat)
     theta = np.deg2rad(lats)
     lamb = np.deg2rad(lons)
 
