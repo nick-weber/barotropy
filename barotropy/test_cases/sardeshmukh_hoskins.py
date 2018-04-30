@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from barotropy import dynamics, diffusion, forcing, damping, initialize
-from barotropy.plotting.debug_plots import fourpanel, fourpanel_polar
+from barotropy.plotting.debug_plots import fourpanel
 from barotropy.util import gaussian_blob_2d
 from sympl import (Leapfrog, PlotFunctionMonitor, NetCDFMonitor,
                    get_component_aliases, get_constant)
@@ -23,7 +23,7 @@ def main():
     duration = '48_00:00'       # run duration ('<days>_<hours>:<mins>')t
     linearized = True
     ncout_freq = 6              # netcdf write frequency (hours)
-    plot_freq = 6              # plot Monitor call frequency (hours)
+    plot_freq = 6               # plot Monitor call frequency (hours)
     ntrunc = 42                 # triangular truncation for spharm (e.g., 21 --> T21)
 
     # Diffusion Options
@@ -36,7 +36,7 @@ def main():
 
     # I/O Options
     ncoutfile = os.path.join(os.getcwd(), 'sardeshmukh88.nc')
-    append_nc = False
+    append_nc = False           # Append to an existing netCDF file?
     # ==============================================
 
     start = time()

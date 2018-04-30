@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from barotropy import dynamics, diffusion, initialize
-from barotropy.plotting.debug_plots import fourpanel, fourpanel_polar
+from barotropy.plotting.debug_plots import fourpanel
 from sympl import (Leapfrog, PlotFunctionMonitor, NetCDFMonitor,
                    get_component_aliases, get_constant)
 from datetime import timedelta
@@ -26,13 +26,9 @@ ntrunc = 42                 # triangular truncation for spharm (e.g., 21 --> T21
 diff_on = True              # Use diffusion?
 k = 2.338e16                # Diffusion coefficient for del^4 hyperdiffusion
 
-# Forcing Options
-forcing_on = False          # Apply vort. tendency forcing?
-damp_ts = 14.7              # Damping timescale (in days)
-
 # I/O Options
 ncoutfile = os.path.join(os.getcwd(), 'gfdl_test.nc')
-append_nc = False
+append_nc = False           # Append to an existing netCDF file?
 # ==============================================
 
 start = time()
@@ -47,11 +43,13 @@ if linearized:
 else:
     dynamics_prog = dynamics.NonlinearDynamics(ntrunc=ntrunc, tendencies_in_diagnostics=True)
     diffusion_prog = diffusion.NonlinearDiffusion(k=k, ntrunc=ntrunc, tendencies_in_diagnostics=True)
-
 prognostics = [dynamics_prog]
+
+# Add diffusion
 if diff_on:
     prognostics.append(diffusion_prog)
 
+# Create Timestepper
 stepper = Leapfrog(*prognostics)
 
 # Create Monitors for plotting & storing data
@@ -74,12 +72,6 @@ while state['time'] <= end_date:
 
     # Add any calculated diagnostics to our current state
     state.update(dynamics_diagnostics)
-
-    # if diff_on:
-    #     diffusion_diagnostics, next_state = diff_stepper(state, dt)
-    #     state.update(diffusion_diagnostics)
-    # else:
-    #     next_state = post_dynamics_state
 
     # Write state to netCDF every <ncout_freq> hours
     fhour = (state['time'] - idate).days*24 + (state['time'] - idate).seconds/3600
