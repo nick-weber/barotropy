@@ -15,7 +15,7 @@ class Forcing(ConstantPrognostic):
     """
 
     @classmethod
-    def from_numpy_array(cls, tendency, **kwargs):
+    def from_numpy_array(cls, tendency, linearized=False, **kwargs):
         """
         Args
         ----
@@ -31,8 +31,13 @@ class Forcing(ConstantPrognostic):
         if not isinstance(tendency, np.ndarray) or len(tendency.shape) != 2:
             raise ValueError('Input tendency must be a 2D numpy array.')
 
+        if linearized:
+            vort_varname = 'perturbation_atmosphere_relative_vorticity'
+        else:
+            vort_varname = 'atmosphere_relative_vorticity'
+
         tendencies = {
-            'perturbation_atmosphere_relative_vorticity': DataArray(
+            vort_varname: DataArray(
                 tendency.copy(),
                 dims=('lat', 'lon'),
                 attrs={'units': 's^-2'})
@@ -44,7 +49,7 @@ class Forcing(ConstantPrognostic):
 
     @classmethod
     def gaussian_tendencies(cls, gridlat, gridlon, centerlocs=None, amplitudes=None,
-                            widths=None, latlon=True, **kwargs):
+                            widths=None, latlon=True, linearized=False, **kwargs):
         """
         Creates a full grid containing one or more Gaussian vorticity tendency
         features. By default, creates a single Gaussian centered at (35N, 160E)
@@ -122,4 +127,4 @@ class Forcing(ConstantPrognostic):
             # Insert (rather, add) that gaussian into the forcing field
             forcing[cj-hw:cj+hw+1, ci-hw:ci+hw+1] += gaus
 
-        return cls.from_numpy_array(forcing, **kwargs)
+        return cls.from_numpy_array(forcing, linearized=linearized, **kwargs)

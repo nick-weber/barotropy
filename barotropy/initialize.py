@@ -12,7 +12,7 @@ Omega = get_constant('planetary_rotation_rate', 's^-1')
 Re = get_constant('planetary_radius', 'm')
 
 
-def super_rotation(idate=None):
+def super_rotation(linearized=False, idate=None):
     """
     Creates ICs for an idealized case: "zonal flow corresponding to
     a super-rotation of the atmosphere with a maximum value of ~15.4 m/s
@@ -57,29 +57,10 @@ def super_rotation(idate=None):
     vort_prime = np.zeros(vort_bar.shape)
 
     # Generate the state
-    ics = {
-        'time': idate,
-        'latitude': DataArray(
-            lats,
-            dims=('lat', 'lon'),
-            attrs={'units': 'degrees', 'gridtype': 'regular'}),
-        'longitude': DataArray(
-            lons,
-            dims=('lat', 'lon'),
-            attrs={'units': 'degrees', 'gridtype': 'regular'}),
-        'base_atmosphere_relative_vorticity': DataArray(
-            vort_bar,
-            dims=('lat', 'lon'),
-            attrs={'units': 's^-1', 'gridtype': 'regular'}),
-        'perturbation_atmosphere_relative_vorticity': DataArray(
-            vort_prime,
-            dims=('lat', 'lon'),
-            attrs={'units': 's^-1', 'gridtype': 'regular'})
-        }
-    return ics
+    return _generate_state(idate, lats, lons, vort_bar, vort_prime, linearized=linearized)
 
 
-def sinusoidal_perts_on_zonal_jet(idate=None, nlat=128, amp=8e-5, m=4, theta0=45., theta_w=15.):
+def sinusoidal_perts_on_zonal_jet(linearized=False, idate=None, nlat=128, amp=8e-5, m=4, theta0=45., theta_w=15.):
     """
     Creates ICs for an idealized case: extratropical zonal jets
     with superimposed sinusoidal NH vorticity perturbations.
@@ -136,30 +117,11 @@ def sinusoidal_perts_on_zonal_jet(idate=None, nlat=128, amp=8e-5, m=4, theta0=45
     vort_prime = s.spectogrd(s.grdtospec(vort_prime, ntrunc=42))
 
     # Generate the state
-    ics = {
-        'time': idate,
-        'latitude': DataArray(
-            lats,
-            dims=('lat', 'lon'),
-            attrs={'units': 'degrees', 'gridtype': 'gaussian'}),
-        'longitude': DataArray(
-            lons,
-            dims=('lat', 'lon'),
-            attrs={'units': 'degrees', 'gridtype': 'gaussian'}),
-        'base_atmosphere_relative_vorticity': DataArray(
-            vort_bar,
-            dims=('lat', 'lon'),
-            attrs={'units': 's^-1', 'gridtype': 'gaussian'}),
-        'perturbation_atmosphere_relative_vorticity': DataArray(
-            vort_prime,
-            dims=('lat', 'lon'),
-            attrs={'units': 's^-1', 'gridtype': 'gaussian'})
-        }
-    return ics
+    return _generate_state(idate, lats, lons, vort_bar, vort_prime, linearized=linearized)
 
 
 def from_u_and_v_winds(lats, lons, ubar, vbar, uprime, vprime,
-                       ntrunc=None, idate=None):
+                       linearized=False, ntrunc=None, idate=None):
     """
     Creates ICs from numpy arrays describing the intial wind field.
 
@@ -217,23 +179,38 @@ def from_u_and_v_winds(lats, lons, ubar, vbar, uprime, vprime,
     vort_prime = s.spectogrd(vortp_spec)
 
     # Generate the state
+    return _generate_state(idate, lats, lons, vort_bar, vort_prime, linearized=linearized)
+
+
+def _generate_state(idate, lats, lons, vort_bar, vort_prime, linearized=False):
+
+    # TODO: add assertions/checks for data shapes
+
     ics = {
         'time': idate,
         'latitude': DataArray(
             lats,
             dims=('lat', 'lon'),
-            attrs={'units': 'degrees', 'gridtype': 'regular'}),
+            attrs={'units': 'degrees', 'gridtype': 'gaussian'}),
         'longitude': DataArray(
             lons,
             dims=('lat', 'lon'),
-            attrs={'units': 'degrees', 'gridtype': 'regular'}),
-        'base_atmosphere_relative_vorticity': DataArray(
+            attrs={'units': 'degrees', 'gridtype': 'gaussian'})
+    }
+
+    if linearized:
+        ics['base_atmosphere_relative_vorticity'] = DataArray(
             vort_bar,
             dims=('lat', 'lon'),
-            attrs={'units': 's^-1', 'gridtype': 'regular'}),
-        'perturbation_atmosphere_relative_vorticity': DataArray(
+            attrs={'units': 's^-1', 'gridtype': 'gaussian'})
+
+        ics['perturbation_atmosphere_relative_vorticity'] = DataArray(
             vort_prime,
             dims=('lat', 'lon'),
-            attrs={'units': 's^-1', 'gridtype': 'regular'})
-    }
+            attrs={'units': 's^-1', 'gridtype': 'gaussian'})
+    else:
+        ics['atmosphere_relative_vorticity'] = DataArray(
+            vort_bar + vort_prime,
+            dims=('lat', 'lon'),
+            attrs={'units': 's^-1', 'gridtype': 'gaussian'})
     return ics
