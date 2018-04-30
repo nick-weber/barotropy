@@ -4,19 +4,28 @@
 Utility functions for use in the other modules.
 """
 import numpy as np
+import spharm
 
 
-def buffer_poles(data):
-    nlat = data.shape[0]
-    nlon = data.shape[1]
+def gaussian_grid(nlat, as_2d=True):
+    """
+    Args
+    ----
+    nlat : int
+        Number of gaussian latitudes. (# lons = 2*nlat)
+    as_2d : bool
+        If True, returns 2d lat/lon grids. Otherwise, returns
+        1d arrays.
 
-    buffered_data = np.zeros((nlat+2, nlon))
-    buffered_data[1:-1, :] = data
+    Returns
+    -------
+    lo, la : numpy array
+        Arrays of lon/lat values in degrees.
+    """
+    lo = np.linspace(0., 360., 2 * nlat + 1)[:-1]
+    la, _ = spharm.gaussian_lats_wts(nlat)
+    if as_2d:
+        lo, la = np.meshgrid(lo, la)
+    return lo, la
 
-    buffered_data[0, :] = np.nanmean(data[0, :])
-    buffered_data[-1, :] = np.nanmean(data[-1, :])
-    return buffered_data
 
-
-def unbuffer_poles(buffered_data):
-    return buffered_data[1:-1, :]

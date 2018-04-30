@@ -22,6 +22,9 @@ class Forcing(ConstantPrognostic):
         tendency : ndarray
             A 2D (lat, lon) numpy array of vorticity tendency values
             (units: s^-2) to be returned by this Prognostic.
+        linearized : bool
+            True is this is a linearized model (forcing tendency will
+            be applied to *perturbation* vorticity).
 
         Raises
         ------
@@ -76,6 +79,9 @@ class Forcing(ConstantPrognostic):
         latlon : bool
             If True, centerlocs and widths are in units of "degrees lat/lon".
             Otherwise, the units are "# of grid points".
+        linearized : bool
+            True is this is a linearized model (forcing tendency will
+            be applied to *perturbation* vorticity).
 
         Returns
         -------

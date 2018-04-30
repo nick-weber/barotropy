@@ -7,12 +7,13 @@ import numpy as np
 import spharm
 from datetime import datetime
 from sympl import DataArray, get_constant
+from .util import gaussian_grid
 
 Omega = get_constant('planetary_rotation_rate', 's^-1')
 Re = get_constant('planetary_radius', 'm')
 
 
-def super_rotation(linearized=False, idate=None):
+def super_rotation(linearized=False, idate=None, nlat=128):
     """
     Creates ICs for an idealized case: "zonal flow corresponding to
     a super-rotation of the atmosphere with a maximum value of ~15.4 m/s
@@ -20,8 +21,12 @@ def super_rotation(linearized=False, idate=None):
 
     Args
     ----
+    linearized : bool
+        True if this is a linearized model.
     idate : datetime
         Forecast initialization date
+    nlat : int
+        Number of latitudes for the gaussian grid.
 
     Returns
     -------
@@ -33,10 +38,8 @@ def super_rotation(linearized=False, idate=None):
         idate = datetime.utcnow().replace(hour=0, minute=0,
                                           second=0, microsecond=0)
 
-    # Create a 2-degree regular lat/lon grid
-    lo = np.arange(0., 360., 2.)
-    la = np.arange(-90, 90.1, 2.)[::-1]
-    lons, lats = np.meshgrid(lo, la)
+    # Create a gaussian lat/lon grid
+    lons, lats = gaussian_grid(nlat)
     theta = lats * np.pi/180.
     lamb = lons * np.pi/180.
 
@@ -45,15 +48,10 @@ def super_rotation(linearized=False, idate=None):
     vbar = np.zeros(ubar.shape)
 
     # Get the mean state vorticity from ubar and vbar
-    s = spharm.Spharmt(lamb.shape[1], lamb.shape[0], gridtype='regular',
+    s = spharm.Spharmt(lamb.shape[1], lamb.shape[0], gridtype='gaussian',
                        rsphere=Re, legfunc='computed')
     vortb_spec, _ = s.getvrtdivspec(ubar, vbar)
     vort_bar = s.spectogrd(vortb_spec)
-
-    # theta0 = np.deg2rad(0.)  # center lat --> radians
-    # theta_w = np.deg2rad(15.)  # halfwidth ---> radians
-    # vort_prime = 0.5 * 12e-5 * np.cos(theta) * np.exp(-((theta - theta0) / theta_w) ** 2) * \
-    #              np.cos(3. * lamb)
     vort_prime = np.zeros(vort_bar.shape)
 
     # Generate the state
@@ -69,8 +67,12 @@ def sinusoidal_perts_on_zonal_jet(linearized=False, idate=None, nlat=128, amp=8e
 
     Args
     ----
+    linearized : bool
+        True if this is a linearized model.
     idate : datetime
         Forecast initialization date
+    nlat : int
+        Number of latitudes for the gaussian grid.
     amp : float
         Vorticity perturbation amplitude [s^-1].
     m : int
@@ -90,11 +92,8 @@ def sinusoidal_perts_on_zonal_jet(linearized=False, idate=None, nlat=128, amp=8e
         idate = datetime.utcnow().replace(hour=0, minute=0,
                                           second=0, microsecond=0)
 
-    # Create a regular lat/lon grid
-    lo = np.linspace(0., 360., 2*nlat + 1)[:-1]
-    # la = np.linspace(-90, 90., nlat)[::-1]
-    la, _ = spharm.gaussian_lats_wts(nlat)
-    lons, lats = np.meshgrid(lo, la)
+    # Create a gaussian lat/lon grid
+    lons, lats = gaussian_grid(nlat)
     theta = np.deg2rad(lats)
     lamb = np.deg2rad(lons)
 
@@ -139,6 +138,8 @@ def from_u_and_v_winds(lats, lons, ubar, vbar, uprime, vprime,
         2D array (nlat, nlon) of perturbation zonal winds
     vprime : numpy  array
         2D array (nlat, nlon) of perturbation meridional winds
+    linearized : bool
+        True if this is a linearized model.
     ntrunc : int
         Triangular truncation for spherical harmonics transformation
     idate : datetime
