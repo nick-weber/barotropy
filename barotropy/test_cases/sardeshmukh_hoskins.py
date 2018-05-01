@@ -37,7 +37,7 @@ def main():
     damp_ts = 14.7              # Damping timescale (in days)
 
     # I/O Options
-    ncoutfile = os.path.join(os.getcwd(), 'sardeshmukh88.nc')
+    ncoutfile = os.path.join(os.path.dirname(__file__), 'sardeshmukh88.nc')
     append_nc = False           # Append to an existing netCDF file?
     # ==============================================
 

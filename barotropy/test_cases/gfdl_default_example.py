@@ -25,7 +25,7 @@ diff_on = True              # Use diffusion?
 k = 2.338e16                # Diffusion coefficient for del^4 hyperdiffusion
 
 # I/O Options
-ncoutfile = os.path.join(os.getcwd(), 'gfdl.nc')
+ncoutfile = os.path.join(os.path.dirname(__file__), 'gfdl.nc')
 append_nc = False           # Append to an existing netCDF file?
 # ==============================================
 
