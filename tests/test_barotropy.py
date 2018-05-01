@@ -6,8 +6,6 @@
 
 import unittest
 
-from barotropy import barotropy
-
 
 class TestBarotropy(unittest.TestCase):
     """Tests for `barotropy` package."""

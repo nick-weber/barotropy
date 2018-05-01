@@ -11,7 +11,12 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = [ ]
+requirements = [
+    'numpy>=1.11',
+    'matplotlib>=2.0',
+    'scipy>=0.18',
+    'netcdf4>=1.2'
+]
 
 setup_requirements = [ ]
 

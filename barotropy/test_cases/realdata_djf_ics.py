@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 
-from barotropy import dynamics, diffusion, forcing, damping, initialize
-from barotropy.plotting.debug_plots import fourpanel
+from barotropy import (
+    LinearizedDynamics, LinearizedDiffusion, LinearizedDamping, Forcing,
+    NonlinearDynamics, NonlinearDiffusion, NonlinearDamping,
+    from_u_and_v_winds, debug_plots
+)
 from sympl import (Leapfrog, PlotFunctionMonitor, NetCDFMonitor,
                    get_component_aliases, get_constant)
 from datetime import timedelta
@@ -47,26 +50,26 @@ with Dataset(ic_file, 'r') as ncdata:
     vbar = ncdata.variables['V200'][:, :]
 uprime = np.zeros(ubar.shape)
 vprime = np.zeros(vbar.shape)
-state = initialize.from_u_and_v_winds(lats, lons, ubar, vbar, uprime, vprime,
-                                      linearized=linearized, ntrunc=ntrunc)
+state = from_u_and_v_winds(lats, lons, ubar, vbar, uprime, vprime,
+                           linearized=linearized, ntrunc=ntrunc)
 
 # Get our Gaussian RWS forcing
 centerlocs = [(35., 160.), (35., 110.)]
 amplitudes = [5e-10, -5e-10]
 widths = [10, 10]
-forcing_prog = forcing.Forcing.gaussian_tendencies(state['latitude'].values, state['longitude'].values,
-                                                   centerlocs=centerlocs, amplitudes=amplitudes, widths=widths,
-                                                   linearized=linearized, tendencies_in_diagnostics=True)
+forcing_prog = Forcing.gaussian_tendencies(state['latitude'].values, state['longitude'].values,
+                                           centerlocs=centerlocs, amplitudes=amplitudes, widths=widths,
+                                           linearized=linearized, tendencies_in_diagnostics=True)
 
 # Set up the Timestepper with the desired Prognostics
 if linearized:
-    dynamics_prog = dynamics.LinearizedDynamics(ntrunc=ntrunc, tendencies_in_diagnostics=True)
-    diffusion_prog = diffusion.LinearizedDiffusion(k=k, ntrunc=ntrunc, tendencies_in_diagnostics=True)
-    damping_prog = damping.LinearizedDamping(tau=damp_ts, tendencies_in_diagnostics=True)
+    dynamics_prog = LinearizedDynamics(ntrunc=ntrunc, tendencies_in_diagnostics=True)
+    diffusion_prog = LinearizedDiffusion(k=k, ntrunc=ntrunc, tendencies_in_diagnostics=True)
+    damping_prog = LinearizedDamping(tau=damp_ts, tendencies_in_diagnostics=True)
 else:
-    dynamics_prog = dynamics.NonlinearDynamics(ntrunc=ntrunc, tendencies_in_diagnostics=True)
-    diffusion_prog = diffusion.NonlinearDiffusion(k=k, ntrunc=ntrunc, tendencies_in_diagnostics=True)
-    damping_prog = damping.NonlinearDamping(tau=damp_ts, tendencies_in_diagnostics=True)
+    dynamics_prog = NonlinearDynamics(ntrunc=ntrunc, tendencies_in_diagnostics=True)
+    diffusion_prog = NonlinearDiffusion(k=k, ntrunc=ntrunc, tendencies_in_diagnostics=True)
+    damping_prog = NonlinearDamping(tau=damp_ts, tendencies_in_diagnostics=True)
 prognostics = [dynamics_prog]
 
 # Add diffusion
@@ -82,7 +85,7 @@ if forcing_on:
 stepper = Leapfrog(*prognostics)
 
 # Create Monitors for plotting & storing data
-plt_monitor = PlotFunctionMonitor(fourpanel)
+plt_monitor = PlotFunctionMonitor(debug_plots.fourpanel)
 if os.path.isfile(ncoutfile) and not append_nc:
     os.remove(ncoutfile)
 aliases = get_component_aliases(*prognostics)

@@ -7,11 +7,8 @@ model output as it runs.
 """
 import numpy as np
 from matplotlib import cm
-import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
-from .utils import NonlinearCmap
-# TODO: REMOVE THIS
-import os
+from .plot_utils import NonlinearCmap
 
 
 def pert_vort(fig, state):
@@ -27,11 +24,7 @@ def pert_vort(fig, state):
     fig.colorbar(im)
 
 
-def fourpanel(fig, state, savefigs=True):
-    savedir = os.path.join(os.getcwd(), 'test_figures')
-    if not os.path.isdir(savedir):
-        os.makedirs(savedir)
-
+def fourpanel(fig, state):
     ax1 = fig.add_axes([0.05, 0.52, 0.40, 0.42])
     ax2 = fig.add_axes([0.47, 0.52, 0.40, 0.42])
     ax3 = fig.add_axes([0.05, 0.05, 0.40, 0.42])
@@ -58,6 +51,7 @@ def fourpanel(fig, state, savefigs=True):
             forcing = state['perturbation_atmosphere_relative_vorticity_tendency_from_forcing'].values * 10**10
         else:
             forcing = None
+        titles = ['total vort.', 'pert. vort.', 'dynamics tend.', 'diffusion tend.']
     else:
         vortp = state['atmosphere_relative_vorticity'].values * 10 ** 5
         vortb = np.zeros(vortp.shape)
@@ -69,10 +63,11 @@ def fourpanel(fig, state, savefigs=True):
             forcing = state['atmosphere_relative_vorticity_tendency_from_forcing'].values * 10 ** 10
         else:
             forcing = None
+        titles = ['total vort.', 'total vort. (same)', 'dynamics tend.', 'diffusion tend.']
 
     axes = [ax1, ax2, ax3, ax4]
     datas = [vortp+vortb, vortp, ten_dyn, ten_diff]
-    titles = ['total vort.', 'pert. vort.', 'dynamics tend.', 'diffusion tend.']
+
     units = [vortunit, vortunit, tendunit, tendunit]
     levels = [vortlevs, vortlevs, tendlevs, tendlevs]
 
@@ -98,8 +93,6 @@ def fourpanel(fig, state, savefigs=True):
         ax.set_ylim(-90, 90)
 
     fig.suptitle('{:%Y-%m-%d %H:%M}'.format(state['time']), x=0.46, fontsize=10)
-    if savefigs:
-        plt.savefig('{}/baro_{:%Y-%m-%d_%H%M}.png'.format(savedir, state['time']))
 
 
 def fourpanel_polar(fig, state):
@@ -158,8 +151,4 @@ def fourpanel_polar(fig, state):
             ax.set_xticklabels([])
 
     fig.suptitle('{:%Y-%m-%d %H:%M}'.format(state['time']), x=0.46, fontsize=10)
-    savedir = '/Users/nweber/barotropy/testfigs_spectral'
-    if not os.path.isdir(savedir):
-        os.makedirs(savedir)
-    plt.savefig('{}/baro_{:%Y-%m-%d_%H%M}.png'.format(savedir, state['time']))
 

@@ -5,7 +5,7 @@ Module containing the ConstantPrognostic object Forcing and some helper function
 """
 
 import numpy as np
-from sympl import (Prognostic, ConstantPrognostic, DataArray)
+from sympl import (ConstantPrognostic, DataArray)
 from .util import gaussian_blob_2d
 
 

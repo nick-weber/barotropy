@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 
-from barotropy import dynamics, diffusion, initialize
-from barotropy.plotting.debug_plots import fourpanel
+from barotropy import (
+    LinearizedDynamics, LinearizedDiffusion, NonlinearDynamics,
+    NonlinearDiffusion, sinusoidal_perts_on_zonal_jet, debug_plots
+)
 from sympl import (Leapfrog, PlotFunctionMonitor, NetCDFMonitor, get_component_aliases)
 from datetime import timedelta
 import re
@@ -10,7 +12,7 @@ from time import time
 
 # ============ Adjustable Variables ============
 # Integration Options
-dt = timedelta(minutes=30)  # timestep
+dt = timedelta(minutes=15)  # timestep
 duration = '20_00:00'       # run duration ('<days>_<hours>:<mins>')
 linearized = False          # run model using linearized state/equations?
 ncout_freq = 6              # netcdf write frequency (hours)
@@ -29,15 +31,15 @@ append_nc = False           # Append to an existing netCDF file?
 start = time()
 
 # Get the initial state
-state = initialize.sinusoidal_perts_on_zonal_jet(linearized=linearized)
+state = sinusoidal_perts_on_zonal_jet(linearized=linearized)
 
 # Set up the Timestepper with the desired Prognostics
 if linearized:
-    dynamics_prog = dynamics.LinearizedDynamics(ntrunc=ntrunc, tendencies_in_diagnostics=True)
-    diffusion_prog = diffusion.LinearizedDiffusion(k=k, ntrunc=ntrunc, tendencies_in_diagnostics=True)
+    dynamics_prog = LinearizedDynamics(ntrunc=ntrunc, tendencies_in_diagnostics=True)
+    diffusion_prog = LinearizedDiffusion(k=k, ntrunc=ntrunc, tendencies_in_diagnostics=True)
 else:
-    dynamics_prog = dynamics.NonlinearDynamics(ntrunc=ntrunc, tendencies_in_diagnostics=True)
-    diffusion_prog = diffusion.NonlinearDiffusion(k=k, ntrunc=ntrunc, tendencies_in_diagnostics=True)
+    dynamics_prog = NonlinearDynamics(ntrunc=ntrunc, tendencies_in_diagnostics=True)
+    diffusion_prog = NonlinearDiffusion(k=k, ntrunc=ntrunc, tendencies_in_diagnostics=True)
 prognostics = [dynamics_prog]
 
 # Add diffusion
@@ -48,7 +50,7 @@ if diff_on:
 stepper = Leapfrog(*prognostics)
 
 # Create Monitors for plotting & storing data
-plt_monitor = PlotFunctionMonitor(fourpanel)
+plt_monitor = PlotFunctionMonitor(debug_plots.fourpanel)
 if os.path.isfile(ncoutfile) and not append_nc:
     os.remove(ncoutfile)
 

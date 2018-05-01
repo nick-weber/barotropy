@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 
-from barotropy import dynamics, diffusion, forcing, damping, initialize
-from barotropy.plotting.debug_plots import fourpanel
-from barotropy.util import gaussian_blob_2d
+from barotropy import (
+    LinearizedDynamics, LinearizedDiffusion, LinearizedDamping, Forcing,
+    NonlinearDynamics, NonlinearDiffusion, NonlinearDamping,
+    super_rotation, debug_plots, gaussian_blob_2d
+)
 from sympl import (Leapfrog, PlotFunctionMonitor, NetCDFMonitor,
                    get_component_aliases, get_constant)
 from datetime import timedelta
@@ -42,29 +44,29 @@ def main():
     start = time()
 
     # Get the initial state
-    state = initialize.super_rotation(linearized=linearized)
+    state = super_rotation(linearized=linearized)
 
     # Set up the Timestepper with the desired Prognostics
     if linearized:
-        dynamics_prog = dynamics.LinearizedDynamics(ntrunc=ntrunc, tendencies_in_diagnostics=True)
-        diffusion_prog = diffusion.LinearizedDiffusion(k=k, ntrunc=ntrunc, tendencies_in_diagnostics=True)
-        damping_prog = damping.LinearizedDamping(tau=damp_ts, tendencies_in_diagnostics=True)
+        dynamics_prog = LinearizedDynamics(ntrunc=ntrunc, tendencies_in_diagnostics=True)
+        diffusion_prog = LinearizedDiffusion(k=k, ntrunc=ntrunc, tendencies_in_diagnostics=True)
+        damping_prog = LinearizedDamping(tau=damp_ts, tendencies_in_diagnostics=True)
     else:
-        dynamics_prog = dynamics.NonlinearDynamics(ntrunc=ntrunc, tendencies_in_diagnostics=True)
-        diffusion_prog = diffusion.NonlinearDiffusion(k=k, ntrunc=ntrunc, tendencies_in_diagnostics=True)
-        damping_prog = damping.NonlinearDamping(tau=damp_ts, tendencies_in_diagnostics=True)
+        dynamics_prog = NonlinearDynamics(ntrunc=ntrunc, tendencies_in_diagnostics=True)
+        diffusion_prog = NonlinearDiffusion(k=k, ntrunc=ntrunc, tendencies_in_diagnostics=True)
+        damping_prog = NonlinearDamping(tau=damp_ts, tendencies_in_diagnostics=True)
     prognostics = [dynamics_prog]
     if diff_on:
         prognostics.append(diffusion_prog)
     if forcing_on:
         # Get our suptropical RWS forcing (from equatorial divergence)
         rws = rws_from_tropical_divergence(state)
-        prognostics.append(forcing.Forcing.from_numpy_array(rws, linearized=linearized, tendencies_in_diagnostics=True))
+        prognostics.append(Forcing.from_numpy_array(rws, linearized=linearized, tendencies_in_diagnostics=True))
         prognostics.append(damping_prog)
     stepper = Leapfrog(*prognostics)
 
     # Create Monitors for plotting & storing data
-    plt_monitor = PlotFunctionMonitor(fourpanel)
+    plt_monitor = PlotFunctionMonitor(debug_plots.fourpanel)
     if os.path.isfile(ncoutfile) and not append_nc:
         os.remove(ncoutfile)
 
