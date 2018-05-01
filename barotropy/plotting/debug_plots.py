@@ -27,7 +27,11 @@ def pert_vort(fig, state):
     fig.colorbar(im)
 
 
-def fourpanel(fig, state):
+def fourpanel(fig, state, savefigs=True):
+    savedir = os.path.join(os.getcwd(), 'test_figures')
+    if not os.path.isdir(savedir):
+        os.makedirs(savedir)
+
     ax1 = fig.add_axes([0.05, 0.52, 0.40, 0.42])
     ax2 = fig.add_axes([0.47, 0.52, 0.40, 0.42])
     ax3 = fig.add_axes([0.05, 0.05, 0.40, 0.42])
@@ -94,10 +98,8 @@ def fourpanel(fig, state):
         ax.set_ylim(-90, 90)
 
     fig.suptitle('{:%Y-%m-%d %H:%M}'.format(state['time']), x=0.46, fontsize=10)
-    savedir = '/Users/nweber/barotropy/testfigs_spectral_debug'
-    if not os.path.isdir(savedir):
-        os.makedirs(savedir)
-    plt.savefig('{}/baro_{:%Y-%m-%d_%H%M}.png'.format(savedir, state['time']))
+    if savefigs:
+        plt.savefig('{}/baro_{:%Y-%m-%d_%H%M}.png'.format(savedir, state['time']))
 
 
 def fourpanel_polar(fig, state):
