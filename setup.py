@@ -15,12 +15,13 @@ requirements = [
     'numpy>=1.11',
     'matplotlib>=2.0',
     'scipy>=0.18',
-    'netcdf4>=1.2'
+    'netcdf4>=1.2',
+    'sympl==0.3.2'
 ]
 
-setup_requirements = [ ]
+setup_requirements = []
 
-test_requirements = [ ]
+test_requirements = []
 
 setup(
     author="Nick Weber",

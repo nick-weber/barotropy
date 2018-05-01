@@ -16,7 +16,7 @@ class Forcing(ConstantPrognostic):
     """
 
     @classmethod
-    def from_numpy_array(cls, tendency, linearized=False, **kwargs):
+    def from_numpy_array(cls, tendency, linearized=False):
         """
         Args
         ----
@@ -47,13 +47,11 @@ class Forcing(ConstantPrognostic):
                 attrs={'units': 's^-2'})
         }
 
-        if 'name' not in kwargs.keys() or kwargs['name'] is None:
-            kwargs['name'] = 'forcing'
-        return cls(tendencies, **kwargs)
+        return cls(tendencies)
 
     @classmethod
     def gaussian_tendencies(cls, gridlat, gridlon, centerlocs=None, amplitudes=None,
-                            widths=None, linearized=False, **kwargs):
+                            widths=None, linearized=False):
         """
         Creates a full grid containing one or more Gaussian vorticity tendency
         features. By default, creates a single Gaussian centered at (25N, 165E)
@@ -113,4 +111,4 @@ class Forcing(ConstantPrognostic):
             # Insert (rather, add) that gaussian into the forcing field
             forcing += gaus
 
-        return cls.from_numpy_array(forcing, linearized=linearized, **kwargs)
+        return cls.from_numpy_array(forcing, linearized=linearized)

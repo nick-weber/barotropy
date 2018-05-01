@@ -3,7 +3,7 @@
 """
 Module containing the Prognostic object Dynamics and some helper functions
 """
-from sympl import Prognostic
+from sympl import Prognostic, get_numpy_arrays_with_properties, restore_data_arrays_with_properties
 
 
 class LinearizedDamping(Prognostic):
@@ -30,7 +30,7 @@ class LinearizedDamping(Prognostic):
         }
     }
 
-    def __init__(self, tau=14.7, **kwargs):
+    def __init__(self, tau=14.7):
         """
         Args
         ----
@@ -38,9 +38,43 @@ class LinearizedDamping(Prognostic):
             Linear damping timescale in days.
         """
         self._tau = tau * 3600. * 24.  # days --> seconds
-        if 'name' not in kwargs.keys() or kwargs['name'] is None:
-            kwargs['name'] = 'damping'
-        super(LinearizedDamping, self).__init__(**kwargs)
+
+    def __call__(self, state):
+        """
+        Gets tendencies and diagnostics from the passed model state.
+        Copied from sympl develop branch (to-be v0.3.3), ignoring checks.
+
+        Args
+        ----
+        state : dict
+            A model state dictionary.
+        Returns
+        -------
+        tendencies : dict
+            A dictionary whose keys are strings indicating
+            state quantities and values are the time derivative of those
+            quantities in units/second at the time of the input state.
+        diagnostics : dict
+            A dictionary whose keys are strings indicating
+            state quantities and values are the value of those quantities
+            at the time of the input state.
+        Raises
+        ------
+        KeyError
+            If a required quantity is missing from the state.
+        InvalidStateError
+            If state is not a valid input for the Prognostic instance.
+        """
+        raw_state = get_numpy_arrays_with_properties(state, self.input_properties)
+        raw_state['time'] = state['time']
+        raw_tendencies, raw_diagnostics = self.array_call(raw_state)
+        tendencies = restore_data_arrays_with_properties(
+            raw_tendencies, self.tendency_properties,
+            state, self.input_properties)
+        diagnostics = restore_data_arrays_with_properties(
+            raw_diagnostics, self.diagnostic_properties,
+            state, self.input_properties)
+        return tendencies, diagnostics
 
     def array_call(self, state):
         """
@@ -96,7 +130,7 @@ class NonlinearDamping(Prognostic):
         }
     }
 
-    def __init__(self, tau=14.7, **kwargs):
+    def __init__(self, tau=14.7):
         """
         Args
         ----
@@ -104,9 +138,43 @@ class NonlinearDamping(Prognostic):
             Linear damping timescale in days.
         """
         self._tau = tau * 3600. * 24.  # days --> seconds
-        if 'name' not in kwargs.keys() or kwargs['name'] is None:
-            kwargs['name'] = 'damping'
-        super(NonlinearDamping, self).__init__(**kwargs)
+
+    def __call__(self, state):
+        """
+        Gets tendencies and diagnostics from the passed model state.
+        Copied from sympl develop branch (to-be v0.3.3), ignoring checks.
+
+        Args
+        ----
+        state : dict
+            A model state dictionary.
+        Returns
+        -------
+        tendencies : dict
+            A dictionary whose keys are strings indicating
+            state quantities and values are the time derivative of those
+            quantities in units/second at the time of the input state.
+        diagnostics : dict
+            A dictionary whose keys are strings indicating
+            state quantities and values are the value of those quantities
+            at the time of the input state.
+        Raises
+        ------
+        KeyError
+            If a required quantity is missing from the state.
+        InvalidStateError
+            If state is not a valid input for the Prognostic instance.
+        """
+        raw_state = get_numpy_arrays_with_properties(state, self.input_properties)
+        raw_state['time'] = state['time']
+        raw_tendencies, raw_diagnostics = self.array_call(raw_state)
+        tendencies = restore_data_arrays_with_properties(
+            raw_tendencies, self.tendency_properties,
+            state, self.input_properties)
+        diagnostics = restore_data_arrays_with_properties(
+            raw_diagnostics, self.diagnostic_properties,
+            state, self.input_properties)
+        return tendencies, diagnostics
 
     def array_call(self, state):
         """

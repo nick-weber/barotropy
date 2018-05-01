@@ -6,7 +6,7 @@ from barotropy import (
     super_rotation, debug_plots, gaussian_blob_2d
 )
 from sympl import (Leapfrog, PlotFunctionMonitor, NetCDFMonitor,
-                   get_component_aliases, get_constant)
+                   get_component_aliases, get_constant, TendencyInDiagnosticsWrapper)
 from datetime import timedelta
 import re
 import os
@@ -48,22 +48,22 @@ def main():
 
     # Set up the Timestepper with the desired Prognostics
     if linearized:
-        dynamics_prog = LinearizedDynamics(ntrunc=ntrunc, tendencies_in_diagnostics=True)
-        diffusion_prog = LinearizedDiffusion(k=k, ntrunc=ntrunc, tendencies_in_diagnostics=True)
-        damping_prog = LinearizedDamping(tau=damp_ts, tendencies_in_diagnostics=True)
+        dynamics_prog = LinearizedDynamics(ntrunc=ntrunc)
+        diffusion_prog = LinearizedDiffusion(k=k, ntrunc=ntrunc)
+        damping_prog = LinearizedDamping(tau=damp_ts)
     else:
-        dynamics_prog = NonlinearDynamics(ntrunc=ntrunc, tendencies_in_diagnostics=True)
-        diffusion_prog = NonlinearDiffusion(k=k, ntrunc=ntrunc, tendencies_in_diagnostics=True)
-        damping_prog = NonlinearDamping(tau=damp_ts, tendencies_in_diagnostics=True)
-    prognostics = [dynamics_prog]
+        dynamics_prog = NonlinearDynamics(ntrunc=ntrunc)
+        diffusion_prog = NonlinearDiffusion(k=k, ntrunc=ntrunc)
+        damping_prog = NonlinearDamping(tau=damp_ts)
+    prognostics = [TendencyInDiagnosticsWrapper(dynamics_prog, 'dynamics')]
     if diff_on:
-        prognostics.append(diffusion_prog)
+        prognostics.append(TendencyInDiagnosticsWrapper(diffusion_prog, 'diffusion'))
     if forcing_on:
         # Get our suptropical RWS forcing (from equatorial divergence)
         rws = rws_from_tropical_divergence(state)
-        prognostics.append(Forcing.from_numpy_array(rws, linearized=linearized, tendencies_in_diagnostics=True))
-        prognostics.append(damping_prog)
-    stepper = Leapfrog(*prognostics)
+        prognostics.append(TendencyInDiagnosticsWrapper(Forcing.from_numpy_array(rws, linearized=linearized), 'forcing'))
+        prognostics.append(TendencyInDiagnosticsWrapper(damping_prog, 'damping'))
+    stepper = Leapfrog(prognostics)
 
     # Create Monitors for plotting & storing data
     plt_monitor = PlotFunctionMonitor(debug_plots.fourpanel)
@@ -114,6 +114,7 @@ def rws_from_tropical_divergence(state, center=(0., 145.), amp=6e-6, width=12):
     divergence = gaussian_blob_2d(lats, lons, center, width, amp)
 
     # Calculate the Rossby Wave Source
+    # Term 1
     # Term 1
     zetabar_spec, _ = s.getvrtdivspec(ubar, vbar)
     zetabar = s.spectogrd(zetabar_spec) + 2 * Omega * np.sin(np.deg2rad(lats))

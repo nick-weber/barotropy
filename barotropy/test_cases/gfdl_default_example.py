@@ -4,7 +4,8 @@ from barotropy import (
     LinearizedDynamics, LinearizedDiffusion, NonlinearDynamics,
     NonlinearDiffusion, sinusoidal_perts_on_zonal_jet, debug_plots
 )
-from sympl import (Leapfrog, PlotFunctionMonitor, NetCDFMonitor, get_component_aliases)
+from sympl import (Leapfrog, PlotFunctionMonitor, NetCDFMonitor,
+                   get_component_aliases, TendencyInDiagnosticsWrapper)
 from datetime import timedelta
 import re
 import os
@@ -24,7 +25,7 @@ diff_on = True              # Use diffusion?
 k = 2.338e16                # Diffusion coefficient for del^4 hyperdiffusion
 
 # I/O Options
-ncoutfile = os.path.join(os.getcwd(), 'gfdl_test.nc')
+ncoutfile = os.path.join(os.getcwd(), 'gfdl.nc')
 append_nc = False           # Append to an existing netCDF file?
 # ==============================================
 
@@ -35,19 +36,19 @@ state = sinusoidal_perts_on_zonal_jet(linearized=linearized)
 
 # Set up the Timestepper with the desired Prognostics
 if linearized:
-    dynamics_prog = LinearizedDynamics(ntrunc=ntrunc, tendencies_in_diagnostics=True)
-    diffusion_prog = LinearizedDiffusion(k=k, ntrunc=ntrunc, tendencies_in_diagnostics=True)
+    dynamics_prog = LinearizedDynamics(ntrunc=ntrunc)
+    diffusion_prog = LinearizedDiffusion(k=k, ntrunc=ntrunc)
 else:
-    dynamics_prog = NonlinearDynamics(ntrunc=ntrunc, tendencies_in_diagnostics=True)
-    diffusion_prog = NonlinearDiffusion(k=k, ntrunc=ntrunc, tendencies_in_diagnostics=True)
-prognostics = [dynamics_prog]
+    dynamics_prog = NonlinearDynamics(ntrunc=ntrunc)
+    diffusion_prog = NonlinearDiffusion(k=k, ntrunc=ntrunc)
+prognostics = [TendencyInDiagnosticsWrapper(dynamics_prog, 'dynamics')]
 
 # Add diffusion
 if diff_on:
-    prognostics.append(diffusion_prog)
+    prognostics.append(TendencyInDiagnosticsWrapper(diffusion_prog, 'diffusion'))
 
 # Create Timestepper
-stepper = Leapfrog(*prognostics)
+stepper = Leapfrog(prognostics)
 
 # Create Monitors for plotting & storing data
 plt_monitor = PlotFunctionMonitor(debug_plots.fourpanel)

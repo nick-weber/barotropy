@@ -4,7 +4,10 @@
 Module containing the Prognostic object Dynamics and some helper functions
 """
 import numpy as np
-from sympl import Prognostic, get_constant
+from sympl import (
+    Prognostic, get_constant, get_numpy_arrays_with_properties,
+    restore_data_arrays_with_properties
+)
 import spharm
 
 Re = get_constant('planetary_radius', 'm')
@@ -38,34 +41,40 @@ class LinearizedDynamics(Prognostic):
     # DIAGS: u (mean & pert), v (mean & pert), and psi (mean & pert)
     diagnostic_properties = {
         'perturbation_eastward_wind': {
-            'dims': ['lat', 'lon'],
+            #'dims': ['lat', 'lon'],
             'units': 'm s^-1',
-            'alias': 'up'
+            'alias': 'up',
+            'dims_like' : 'latitude'
         },
         'base_eastward_wind': {
-            'dims': ['lat', 'lon'],
+            #'dims': ['lat', 'lon'],
             'units': 'm s^-1',
-            'alias': 'ub'
+            'alias': 'ub',
+            'dims_like' : 'latitude'
         },
         'perturbation_northward_wind': {
-            'dims': ['lat', 'lon'],
+            #'dims': ['lat', 'lon'],
             'units': 'm s^-1',
-            'alias': 'vp'
+            'alias': 'vp',
+            'dims_like' : 'latitude'
         },
         'base_northward_wind': {
-            'dims': ['lat', 'lon'],
+            #'dims': ['lat', 'lon'],
             'units': 'm s^-1',
-            'alias': 'vb'
+            'alias': 'vb',
+            'dims_like' : 'latitude'
         },
         'perturbation_atmosphere_horizontal_streamfunction': {
-            'dims': ['lat', 'lon'],
+            #'dims': ['lat', 'lon'],
             'units': 'm^2 s^-1',
             'alias': 'psip',
+            'dims_like' : 'latitude'
         },
         'base_atmosphere_horizontal_streamfunction': {
-            'dims': ['lat', 'lon'],
+            #'dims': ['lat', 'lon'],
             'units': 'm^2 s^-1',
             'alias': 'psib',
+            'dims_like' : 'latitude'
         },
     }
 
@@ -76,11 +85,45 @@ class LinearizedDynamics(Prognostic):
         }
     }
 
-    def __init__(self, ntrunc=21, **kwargs):
+    def __init__(self, ntrunc=21):
         self._ntrunc = ntrunc
-        if 'name' not in kwargs.keys() or kwargs['name'] is None:
-            kwargs['name'] = 'dynamics'
-        super(LinearizedDynamics, self).__init__(**kwargs)
+
+    def __call__(self, state):
+        """
+        Gets tendencies and diagnostics from the passed model state.
+        Copied from sympl develop branch (to-be v0.3.3), ignoring checks.
+
+        Args
+        ----
+        state : dict
+            A model state dictionary.
+        Returns
+        -------
+        tendencies : dict
+            A dictionary whose keys are strings indicating
+            state quantities and values are the time derivative of those
+            quantities in units/second at the time of the input state.
+        diagnostics : dict
+            A dictionary whose keys are strings indicating
+            state quantities and values are the value of those quantities
+            at the time of the input state.
+        Raises
+        ------
+        KeyError
+            If a required quantity is missing from the state.
+        InvalidStateError
+            If state is not a valid input for the Prognostic instance.
+        """
+        raw_state = get_numpy_arrays_with_properties(state, self.input_properties)
+        raw_state['time'] = state['time']
+        raw_tendencies, raw_diagnostics = self.array_call(raw_state)
+        tendencies = restore_data_arrays_with_properties(
+            raw_tendencies, self.tendency_properties,
+            state, self.input_properties)
+        diagnostics = restore_data_arrays_with_properties(
+            raw_diagnostics, self.diagnostic_properties,
+            state, self.input_properties)
+        return tendencies, diagnostics
 
     def array_call(self, state):
         """
@@ -162,34 +205,78 @@ class NonlinearDynamics(Prognostic):
     # DIAGS: u (mean & pert), v (mean & pert), and psi (mean & pert)
     diagnostic_properties = {
         'eastward_wind': {
-            'dims': ['lat', 'lon'],
+            #'dims': ['lat', 'lon'],
             'units': 'm s^-1',
-            'alias': 'u'
+            'alias': 'u',
+            'dims_like': 'latitude'
         },
         'northward_wind': {
-            'dims': ['lat', 'lon'],
+            #'dims': ['lat', 'lon'],
             'units': 'm s^-1',
-            'alias': 'v'
+            'alias': 'v',
+            'dims_like': 'latitude'
         },
         'atmosphere_horizontal_streamfunction': {
-            'dims': ['lat', 'lon'],
+            #'dims': ['lat', 'lon'],
             'units': 'm^2 s^-1',
             'alias': 'psi',
+            'dims_like': 'latitude'
         }
     }
 
     # TENDENCIES: vorticity (prime only)
     tendency_properties = {
         'atmosphere_relative_vorticity': {
-            'units': 's^-2'
+            'units': 's^-2',
+            'dims_like': 'latitude'
         }
     }
 
-    def __init__(self, ntrunc=21, **kwargs):
+    def __init__(self, ntrunc=21):
         self._ntrunc = ntrunc
-        if 'name' not in kwargs.keys() or kwargs['name'] is None:
-            kwargs['name'] = 'dynamics'
-        super(NonlinearDynamics, self).__init__(**kwargs)
+
+    def __call__(self, state):
+        """
+        Gets tendencies and diagnostics from the passed model state.
+        Copied from sympl develop branch (to-be v0.3.3), ignoring checks.
+
+        Args
+        ----
+        state : dict
+            A model state dictionary.
+        Returns
+        -------
+        tendencies : dict
+            A dictionary whose keys are strings indicating
+            state quantities and values are the time derivative of those
+            quantities in units/second at the time of the input state.
+        diagnostics : dict
+            A dictionary whose keys are strings indicating
+            state quantities and values are the value of those quantities
+            at the time of the input state.
+        Raises
+        ------
+        KeyError
+            If a required quantity is missing from the state.
+        InvalidStateError
+            If state is not a valid input for the Prognostic instance.
+        """
+        raw_state = get_numpy_arrays_with_properties(state, self.input_properties)
+        raw_state['time'] = state['time']
+        raw_tendencies, raw_diagnostics = self.array_call(raw_state)
+        tendencies = restore_data_arrays_with_properties(
+            raw_tendencies, self.tendency_properties,
+            state, self.input_properties)
+        # print(state.keys())
+        # print(raw_state.keys())
+        # print(raw_diagnostics.keys())
+        # print(self.diagnostic_properties.keys())
+        # print(self.input_properties.keys())
+        # print('-----------')
+        diagnostics = restore_data_arrays_with_properties(
+            raw_diagnostics, self.diagnostic_properties,
+            state, self.input_properties)
+        return tendencies, diagnostics
 
     def array_call(self, state):
         """
@@ -232,24 +319,6 @@ class NonlinearDynamics(Prognostic):
         beta = s.getgrad(s.grdtospec(f, ntrunc=self._ntrunc))[1]
         dvort_dx = s.getgrad(vort_spec)[0]
         dvort_dy = s.getgrad(vort_spec)[1]
-        # ===============================================================
-        # vort_spec_notrunc = s.grdtospec(vort)
-        # u2, v2 = s.getuv(vort_spec_notrunc, np.zeros(vort_spec_notrunc.shape))
-        # uvort = u2 * (vort + f)
-        # vvort = v2 * (vort + f)
-        # # _, vort_tend_spec = s.getvrtdivspec(uvort, vvort, ntrunc=self._ntrunc)
-        # vort_tend_spec, _ = s.getvrtdivspec(vvort, -uvort, ntrunc=self._ntrunc)
-        # vort_tend = s.spectogrd(vort_tend_spec)
-        # print('---------------')
-        # for name, thing in zip(['u2', 'v2', 'vort', 'vort_tend'], [u2, v2, vort, vort_tend]):
-        #     print(name, '---', np.min(thing), np.max(thing))
-
-
-        # uvort_spec = s.grdtospec(u*(vort + f), ntrunc=self._ntrunc)
-        # vvort_spec = s.grdtospec(v*(vort + f), ntrunc=self._ntrunc)
-        # vort_tend = s.getgrad(uvort_spec)[0] + s.getgrad(vvort_spec)[1]
-        # ===============================================================
-
         vort_tend = - v * beta - u * dvort_dx - v * dvort_dy
         tendencies = {'vort': vort_tend}
 

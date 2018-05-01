@@ -3,7 +3,7 @@
 """
 Module containing the Prognostic object Diffusion and some helper functions
 """
-from sympl import Prognostic
+from sympl import Prognostic, get_numpy_arrays_with_properties, restore_data_arrays_with_properties
 import spharm
 
 
@@ -36,12 +36,46 @@ class LinearizedDiffusion(Prognostic):
         }
     }
 
-    def __init__(self, ntrunc=21, k=2.338e16, **kwargs):
+    def __init__(self, ntrunc=21, k=2.338e16):
         self._ntrunc = ntrunc
         self._k = k
-        if 'name' not in kwargs.keys() or kwargs['name'] is None:
-            kwargs['name'] = 'diffusion'
-        super(LinearizedDiffusion, self).__init__(**kwargs)
+
+    def __call__(self, state):
+        """
+        Gets tendencies and diagnostics from the passed model state.
+        Copied from sympl develop branch (to-be v0.3.3), ignoring checks.
+
+        Args
+        ----
+        state : dict
+            A model state dictionary.
+        Returns
+        -------
+        tendencies : dict
+            A dictionary whose keys are strings indicating
+            state quantities and values are the time derivative of those
+            quantities in units/second at the time of the input state.
+        diagnostics : dict
+            A dictionary whose keys are strings indicating
+            state quantities and values are the value of those quantities
+            at the time of the input state.
+        Raises
+        ------
+        KeyError
+            If a required quantity is missing from the state.
+        InvalidStateError
+            If state is not a valid input for the Prognostic instance.
+        """
+        raw_state = get_numpy_arrays_with_properties(state, self.input_properties)
+        raw_state['time'] = state['time']
+        raw_tendencies, raw_diagnostics = self.array_call(raw_state)
+        tendencies = restore_data_arrays_with_properties(
+            raw_tendencies, self.tendency_properties,
+            state, self.input_properties)
+        diagnostics = restore_data_arrays_with_properties(
+            raw_diagnostics, self.diagnostic_properties,
+            state, self.input_properties)
+        return tendencies, diagnostics
 
     def array_call(self, state):
         """
@@ -99,12 +133,46 @@ class NonlinearDiffusion(Prognostic):
         }
     }
 
-    def __init__(self, ntrunc=21, k=2.338e16, **kwargs):
+    def __init__(self, ntrunc=21, k=2.338e16):
         self._ntrunc = ntrunc
         self._k = k
-        if 'name' not in kwargs.keys() or kwargs['name'] is None:
-            kwargs['name'] = 'diffusion'
-        super(NonlinearDiffusion, self).__init__(**kwargs)
+
+    def __call__(self, state):
+        """
+        Gets tendencies and diagnostics from the passed model state.
+        Copied from sympl develop branch (to-be v0.3.3), ignoring checks.
+
+        Args
+        ----
+        state : dict
+            A model state dictionary.
+        Returns
+        -------
+        tendencies : dict
+            A dictionary whose keys are strings indicating
+            state quantities and values are the time derivative of those
+            quantities in units/second at the time of the input state.
+        diagnostics : dict
+            A dictionary whose keys are strings indicating
+            state quantities and values are the value of those quantities
+            at the time of the input state.
+        Raises
+        ------
+        KeyError
+            If a required quantity is missing from the state.
+        InvalidStateError
+            If state is not a valid input for the Prognostic instance.
+        """
+        raw_state = get_numpy_arrays_with_properties(state, self.input_properties)
+        raw_state['time'] = state['time']
+        raw_tendencies, raw_diagnostics = self.array_call(raw_state)
+        tendencies = restore_data_arrays_with_properties(
+            raw_tendencies, self.tendency_properties,
+            state, self.input_properties)
+        diagnostics = restore_data_arrays_with_properties(
+            raw_diagnostics, self.diagnostic_properties,
+            state, self.input_properties)
+        return tendencies, diagnostics
 
     def array_call(self, state):
         """

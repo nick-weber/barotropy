@@ -6,7 +6,7 @@ Module containing functions to initialize the model state.
 import numpy as np
 import spharm
 from datetime import datetime
-from sympl import DataArray, get_constant
+from sympl import DataArray, get_constant, add_direction_names
 from .util import gaussian_latlon_grid, interp_to_gaussian
 
 Omega = get_constant('planetary_rotation_rate', 's^-1')
@@ -223,7 +223,7 @@ def _generate_state(idate, lats, lons, vort_bar, vort_prime, linearized=False):
     """
 
     # TODO: add assertions/checks for data shapes
-
+    add_direction_names(x='lat', y='lon')
     ics = {
         'time': idate,
         'latitude': DataArray(
