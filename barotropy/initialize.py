@@ -7,7 +7,7 @@ import numpy as np
 import spharm
 from datetime import datetime
 from sympl import DataArray, get_constant
-from .util import gaussian_latlon_grid
+from .util import gaussian_latlon_grid, interp_to_gaussian
 
 Omega = get_constant('planetary_rotation_rate', 's^-1')
 Re = get_constant('planetary_radius', 'm')
@@ -119,7 +119,7 @@ def sinusoidal_perts_on_zonal_jet(linearized=False, idate=None, nlat=128, amp=8e
     return _generate_state(idate, lats, lons, vort_bar, vort_prime, linearized=linearized)
 
 
-def from_u_and_v_winds(lats, lons, ubar, vbar, uprime, vprime,
+def from_u_and_v_winds(lats, lons, ubar, vbar, uprime=None, vprime=None, interp=True,
                        linearized=False, ntrunc=None, idate=None):
     """
     Creates ICs from numpy arrays describing the intial wind field.
@@ -127,9 +127,9 @@ def from_u_and_v_winds(lats, lons, ubar, vbar, uprime, vprime,
     Args
     ----
     lats : numpy array
-        1D array of global, evenly spaced latitudes (in degrees)
+        1D array of global latitudes (in degrees)
     lons : numpy  array
-        1D array of global, evenly spaced longitudes (in degrees)
+        1D array of global longitudes (in degrees)
     ubar : numpy  array
         2D array (nlat, nlon) of mean state zonal winds
     vbar : numpy  array
@@ -138,6 +138,8 @@ def from_u_and_v_winds(lats, lons, ubar, vbar, uprime, vprime,
         2D array (nlat, nlon) of perturbation zonal winds
     vprime : numpy  array
         2D array (nlat, nlon) of perturbation meridional winds
+    interp : bool
+        If True, fields will be interpolated to a gaussian grid.
     linearized : bool
         True if this is a linearized model.
     ntrunc : int
@@ -155,24 +157,37 @@ def from_u_and_v_winds(lats, lons, ubar, vbar, uprime, vprime,
         idate = datetime.utcnow().replace(hour=0, minute=0,
                                           second=0, microsecond=0)
 
-    # Make sure that latitudes are symmetric about the equator
-    if not np.allclose(np.abs(lats), np.abs(lats)[::-1]):
-        raise ValueError('Latitudes must be symmetric about equator.')
-    # Make sure the poles are included in the data
-    if not (90. in lats and -90. in lats):
-        raise ValueError('Latitude dimensions must contain the poles')
+    # If only ubar and vbar are provided, then forecast will be nonlinear
+    if uprime is None or vprime is None:
+        uprime = np.zeros(ubar.shape)
+        vprime = np.zeros(vbar.shape)
+        linearized = False
 
-    # If the data is oriented S-to-N, we need to reverse it
-    if lats[-1] > lats[0]:
-        lats = lats[::-1]
-        ubar = ubar[::-1, :]
-        vbar = vbar[::-1, :]
-        uprime = uprime[::-1, :]
-        vprime = vprime[::-1, :]
-    lons, lats = np.meshgrid(lons, lats)
+    # Interpolate to a gaussian grid, if necessary
+    gridlons, gridlats = np.meshgrid(lons, lats)
+    if interp:
+        lats, lons, ubar = interp_to_gaussian(gridlats, gridlons, ubar, return_latlon=True)
+        vbar = interp_to_gaussian(gridlats, gridlons, vbar)
+        if linearized:
+            uprime = interp_to_gaussian(gridlats, gridlons, uprime)
+            vprime = interp_to_gaussian(gridlats, gridlons, vprime)
+        else:
+            uprime = np.zeros(ubar.shape)
+            vprime = np.zeros(vbar.shape)
+    else:
+        lons, lats = gridlons, gridlats
+
+    # # If the data is oriented S-to-N, we need to reverse it
+    # if lats[-1] > lats[0]:
+    #     lats = lats[::-1]
+    #     ubar = ubar[::-1, :]
+    #     vbar = vbar[::-1, :]
+    #     uprime = uprime[::-1, :]
+    #     vprime = vprime[::-1, :]
+    # lons, lats = np.meshgrid(lons, lats)
 
     # Get the mean state & perturbation vorticity from the winds
-    s = spharm.Spharmt(lats.shape[1], lats.shape[0], gridtype='regular',
+    s = spharm.Spharmt(lats.shape[1], lats.shape[0], gridtype='gaussian',
                        rsphere=get_constant('planetary_radius', 'm'), legfunc='computed')
     vortb_spec, _ = s.getvrtdivspec(ubar, vbar, ntrunc=ntrunc)
     vort_bar = s.spectogrd(vortb_spec)
@@ -184,6 +199,28 @@ def from_u_and_v_winds(lats, lons, ubar, vbar, uprime, vprime,
 
 
 def _generate_state(idate, lats, lons, vort_bar, vort_prime, linearized=False):
+    """
+    Args
+    ----
+    idate : datetime
+        Forecast initialization date.
+    lats : numpy array
+        2D array of latitudes.
+    lons : numpy array
+        2D array of longitudes.
+    vort_bar : numpy array
+        2D array of basic state vorticity.
+    vort_prime : numpy array
+        2D array of perturbation vorticity.
+    linearized : bool
+        True if this is a linearized model. If false, vort_bar and
+        vort_prime are added together for the full vorticity field.
+
+    Returns
+    -------
+    ics : dict
+        Dictionary of DataArrays containing the forecast initial state.
+    """
 
     # TODO: add assertions/checks for data shapes
 
