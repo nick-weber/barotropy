@@ -3,7 +3,7 @@
 
 """The setup script."""
 
-from setuptools import setup, find_packages
+from setuptools import setup
 
 with open('README.rst') as readme_file:
     readme = readme_file.read()
@@ -12,11 +12,12 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
 requirements = [
-    'numpy>=1.11',
-    'matplotlib>=2.0',
-    'scipy>=0.18',
-    'netcdf4>=1.2',
-    'sympl==0.3.2'
+    'numpy>=1.11.3',
+    'matplotlib>=2.0.0',
+    'scipy>=0.18.1',
+    'netcdf4>=1.2.4',
+    'sympl==0.3.2',
+    'spharm>=1.0.9'
 ]
 
 setup_requirements = []
@@ -45,7 +46,7 @@ setup(
     include_package_data=True,
     keywords='barotropy',
     name='barotropy',
-    packages=find_packages(include=['barotropy']),
+    packages=['barotropy'],
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,
