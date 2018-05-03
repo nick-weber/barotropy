@@ -16,8 +16,7 @@ requirements = [
     'matplotlib>=2.0.0',
     'scipy>=0.18.1',
     'netcdf4>=1.2.4',
-    'sympl==0.3.2',
-    'spharm>=1.0.9'
+    'sympl==0.3.2'
 ]
 
 setup_requirements = []
