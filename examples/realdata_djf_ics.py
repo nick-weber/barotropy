@@ -21,7 +21,7 @@ Omega = get_constant('planetary_rotation_rate', 's^-1')
 # Integration Options
 dt = timedelta(minutes=15)  # timestep
 duration = '10_00:00'       # run duration ('<days>_<hours>:<mins>')t
-linearized = False          # run model using linearized state/equations?
+linearized = True          # run model using linearized state/equations?
 ncout_freq = 6              # netcdf write frequency (hours)
 plot_freq = 6               # plot Monitor call frequency (hours)
 ntrunc = 42                 # triangular truncation for spharm (e.g., 21 --> T21)
@@ -54,11 +54,12 @@ state = from_u_and_v_winds(lats, lons, ubar, vbar, uprime, vprime,
                            linearized=linearized, ntrunc=ntrunc)
 
 # Get our Gaussian RWS forcing
-centerlocs = [(35., 160.), (35., 110.)]
-amplitudes = [5e-10, -5e-10]
-widths = [10, 10]
+centerlocs = [(35., 160.), (35., 100.)]
+amplitudes = [4e-10, -4e-10]
+widths = [7, 7]
 forcing_prog = Forcing.gaussian_tendencies(state['latitude'].values, state['longitude'].values,
-                                           centerlocs=centerlocs, amplitudes=amplitudes, widths=widths)
+                                           centerlocs=centerlocs, amplitudes=amplitudes, widths=widths,
+                                           linearized=linearized)
 
 # Set up the Timestepper with the desired Prognostics
 if linearized:

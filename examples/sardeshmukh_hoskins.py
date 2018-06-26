@@ -44,7 +44,7 @@ def main():
     start = time()
 
     # Get the initial state
-    state = super_rotation(linearized=linearized)
+    state = super_rotation(linearized=linearized, ntrunc=ntrunc)
 
     # Set up the Timestepper with the desired Prognostics
     if linearized:

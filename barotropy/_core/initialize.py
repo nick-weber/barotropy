@@ -12,8 +12,11 @@ from .util import gaussian_latlon_grid, interp_to_gaussian
 Omega = get_constant('planetary_rotation_rate', 's^-1')
 Re = get_constant('planetary_radius', 'm')
 
+TRUNC_NLATS = {21: 32, 31: 48, 42: 64, 63: 96, 85: 128, 106: 160, 127: 192, 170: 256,
+               213: 320, 255: 384, 341: 512, 511: 768, 682: 1024, 1365: 2048}
 
-def super_rotation(linearized=False, idate=None, nlat=128):
+
+def super_rotation(linearized=False, idate=None, ntrunc=42):
     """
     Creates ICs for an idealized case: "zonal flow corresponding to
     a super-rotation of the atmosphere with a maximum value of ~15.4 m/s
@@ -25,8 +28,8 @@ def super_rotation(linearized=False, idate=None, nlat=128):
         True if this is a linearized model.
     idate : datetime
         Forecast initialization date
-    nlat : int
-        Number of latitudes for the gaussian grid.
+    ntrunc : int
+        Triangular trunction (e.g., 42 for T42).
 
     Returns
     -------
@@ -39,6 +42,9 @@ def super_rotation(linearized=False, idate=None, nlat=128):
                                           second=0, microsecond=0)
 
     # Create a gaussian lat/lon grid
+    if ntrunc not in TRUNC_NLATS.keys():
+        raise ValueError('Truncation T{} is not in the dictionary TRUNC_NLATS'.format(ntrunc))
+    nlat = TRUNC_NLATS[ntrunc]
     lons, lats = gaussian_latlon_grid(nlat)
     theta = lats * np.pi/180.
     lamb = lons * np.pi/180.
@@ -58,7 +64,7 @@ def super_rotation(linearized=False, idate=None, nlat=128):
     return _generate_state(idate, lats, lons, vort_bar, vort_prime, linearized=linearized)
 
 
-def sinusoidal_perts_on_zonal_jet(linearized=False, idate=None, nlat=128, amp=8e-5, m=4, theta0=45., theta_w=15.):
+def sinusoidal_perts_on_zonal_jet(linearized=False, idate=None, ntrunc=42, amp=8e-5, m=4, theta0=45., theta_w=15.):
     """
     Creates ICs for an idealized case: extratropical zonal jets
     with superimposed sinusoidal NH vorticity perturbations.
@@ -71,8 +77,8 @@ def sinusoidal_perts_on_zonal_jet(linearized=False, idate=None, nlat=128, amp=8e
         True if this is a linearized model.
     idate : datetime
         Forecast initialization date
-    nlat : int
-        Number of latitudes for the gaussian grid.
+    ntrunc : int
+        Triangular trunction (e.g., 42 for T42).
     amp : float
         Vorticity perturbation amplitude [s^-1].
     m : int
@@ -93,6 +99,9 @@ def sinusoidal_perts_on_zonal_jet(linearized=False, idate=None, nlat=128, amp=8e
                                           second=0, microsecond=0)
 
     # Create a gaussian lat/lon grid
+    if ntrunc not in TRUNC_NLATS.keys():
+        raise ValueError('Truncation T{} is not in the dictionary TRUNC_NLATS'.format(ntrunc))
+    nlat = TRUNC_NLATS[ntrunc]
     lons, lats = gaussian_latlon_grid(nlat)
     theta = np.deg2rad(lats)
     lamb = np.deg2rad(lons)
@@ -143,7 +152,7 @@ def from_u_and_v_winds(lats, lons, ubar, vbar, uprime=None, vprime=None, interp=
     linearized : bool
         True if this is a linearized model.
     ntrunc : int
-        Triangular truncation for spherical harmonics transformation
+        Triangular trunction (e.g., 42 for T42).
     idate : datetime
         Foreast initialization date
 
@@ -166,25 +175,19 @@ def from_u_and_v_winds(lats, lons, ubar, vbar, uprime=None, vprime=None, interp=
     # Interpolate to a gaussian grid, if necessary
     gridlons, gridlats = np.meshgrid(lons, lats)
     if interp:
-        lats, lons, ubar = interp_to_gaussian(gridlats, gridlons, ubar, return_latlon=True)
-        vbar = interp_to_gaussian(gridlats, gridlons, vbar)
+        if ntrunc not in TRUNC_NLATS.keys():
+            raise ValueError('Truncation T{} is not in the dictionary TRUNC_NLATS'.format(ntrunc))
+        nlat = TRUNC_NLATS[ntrunc]
+        lats, lons, ubar = interp_to_gaussian(gridlats, gridlons, ubar, nlat=nlat, return_latlon=True)
+        vbar = interp_to_gaussian(gridlats, gridlons, vbar, nlat=nlat)
         if linearized:
-            uprime = interp_to_gaussian(gridlats, gridlons, uprime)
-            vprime = interp_to_gaussian(gridlats, gridlons, vprime)
+            uprime = interp_to_gaussian(gridlats, gridlons, uprime, nlat=nlat)
+            vprime = interp_to_gaussian(gridlats, gridlons, vprime, nlat=nlat)
         else:
             uprime = np.zeros(ubar.shape)
             vprime = np.zeros(vbar.shape)
     else:
         lons, lats = gridlons, gridlats
-
-    # # If the data is oriented S-to-N, we need to reverse it
-    # if lats[-1] > lats[0]:
-    #     lats = lats[::-1]
-    #     ubar = ubar[::-1, :]
-    #     vbar = vbar[::-1, :]
-    #     uprime = uprime[::-1, :]
-    #     vprime = vprime[::-1, :]
-    # lons, lats = np.meshgrid(lons, lats)
 
     # Get the mean state & perturbation vorticity from the winds
     s = spharm.Spharmt(lats.shape[1], lats.shape[0], gridtype='gaussian',

@@ -32,7 +32,7 @@ append_nc = False           # Append to an existing netCDF file?
 start = time()
 
 # Get the initial state
-state = sinusoidal_perts_on_zonal_jet(linearized=linearized)
+state = sinusoidal_perts_on_zonal_jet(linearized=linearized, ntrunc=ntrunc)
 
 # Set up the Timestepper with the desired Prognostics
 if linearized:
