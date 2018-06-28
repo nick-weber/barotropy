@@ -59,7 +59,7 @@ amplitudes = [4e-10, -4e-10]
 widths = [7, 7]
 forcing_prog = Forcing.gaussian_tendencies(state['latitude'].values, state['longitude'].values,
                                            centerlocs=centerlocs, amplitudes=amplitudes, widths=widths,
-                                           linearized=linearized)
+                                           ntrunc=ntrunc, linearized=linearized)
 
 # Set up the Timestepper with the desired Prognostics
 if linearized:

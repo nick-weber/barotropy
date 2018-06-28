@@ -60,8 +60,9 @@ def main():
         prognostics.append(TendencyInDiagnosticsWrapper(diffusion_prog, 'diffusion'))
     if forcing_on:
         # Get our suptropical RWS forcing (from equatorial divergence)
-        rws = rws_from_tropical_divergence(state)
-        prognostics.append(TendencyInDiagnosticsWrapper(Forcing.from_numpy_array(rws, linearized=linearized), 'forcing'))
+        rws, rlat, rlon = rws_from_tropical_divergence(state)
+        prognostics.append(TendencyInDiagnosticsWrapper(Forcing.from_numpy_array(rws, rlat, rlon, ntrunc=ntrunc,
+                                                                                 linearized=linearized), 'forcing'))
         prognostics.append(TendencyInDiagnosticsWrapper(damping_prog, 'damping'))
     stepper = Leapfrog(prognostics)
 
@@ -115,7 +116,6 @@ def rws_from_tropical_divergence(state, center=(0., 145.), amp=6e-6, width=12):
 
     # Calculate the Rossby Wave Source
     # Term 1
-    # Term 1
     zetabar_spec, _ = s.getvrtdivspec(ubar, vbar)
     zetabar = s.spectogrd(zetabar_spec) + 2 * Omega * np.sin(np.deg2rad(lats))
     term1 = -zetabar * divergence
@@ -124,7 +124,7 @@ def rws_from_tropical_divergence(state, center=(0., 145.), amp=6e-6, width=12):
     dzeta_dx, dzeta_dy = s.getgrad(s.grdtospec(zetabar))
     term2 = - uchi * dzeta_dx - vchi * dzeta_dy
     rws = term1 + term2
-    return rws
+    return rws, lats, lons
 
 
 if __name__ == '__main__':

@@ -6,7 +6,8 @@ Module containing the ConstantPrognostic object Forcing and some helper function
 
 import numpy as np
 from sympl import (ConstantPrognostic, DataArray)
-from .util import gaussian_blob_2d
+from .util import gaussian_blob_2d, interp_to_gaussian
+from .initialize import TRUNC_NLATS
 
 
 class Forcing(ConstantPrognostic):
@@ -16,13 +17,19 @@ class Forcing(ConstantPrognostic):
     """
 
     @classmethod
-    def from_numpy_array(cls, tendency, linearized=False):
+    def from_numpy_array(cls, tendency, lats, lons, ntrunc=42, linearized=False):
         """
         Args
         ----
         tendency : ndarray
             A 2D (lat, lon) numpy array of vorticity tendency values
             (units: s^-2) to be returned by this Prognostic.
+        lats : numpy array
+            2D array of latitudes.
+        lons : numpy array
+            2D array of longitudes.
+        ntrunc : int
+            Triangular trunction (e.g., 42 for T42).
         linearized : bool
             True is this is a linearized model (forcing tendency will
             be applied to *perturbation* vorticity).
@@ -40,9 +47,13 @@ class Forcing(ConstantPrognostic):
         else:
             vort_varname = 'atmosphere_relative_vorticity'
 
+        if ntrunc not in TRUNC_NLATS.keys():
+            raise ValueError('Truncation T{} is not in the dictionary TRUNC_NLATS'.format(ntrunc))
+        nlat = TRUNC_NLATS[ntrunc]
+
         tendencies = {
             vort_varname: DataArray(
-                tendency.copy(),
+                interp_to_gaussian(lats, lons, tendency, nlat=nlat),
                 dims=('lat', 'lon'),
                 attrs={'units': 's^-2'})
         }
@@ -51,7 +62,7 @@ class Forcing(ConstantPrognostic):
 
     @classmethod
     def gaussian_tendencies(cls, gridlat, gridlon, centerlocs=None, amplitudes=None,
-                            widths=None, linearized=False):
+                            widths=None, ntrunc=42, linearized=False):
         """
         Creates a full grid containing one or more Gaussian vorticity tendency
         features. By default, creates a single Gaussian centered at (25N, 165E)
@@ -74,6 +85,8 @@ class Forcing(ConstantPrognostic):
             A list of floats or ints prescribing the degree widths of the
             desired Gausian forcings.
             default = [15], i.e. ten degrees
+        ntrunc : int
+            Triangular trunction (e.g., 42 for T42).
         linearized : bool
             True is this is a linearized model (forcing tendency will
             be applied to *perturbation* vorticity).
@@ -111,4 +124,4 @@ class Forcing(ConstantPrognostic):
             # Insert (rather, add) that gaussian into the forcing field
             forcing += gaus
 
-        return cls.from_numpy_array(forcing, linearized=linearized)
+        return cls.from_numpy_array(forcing, gridlat, gridlon, ntrunc=ntrunc, linearized=linearized)
